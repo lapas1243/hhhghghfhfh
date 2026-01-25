@@ -475,7 +475,8 @@ async def check_solana_deposits(context):
                                 eur_amount=target_eur,
                                 basket_snapshot=basket_snapshot if is_purchase else None,
                                 overpayment_eur=overpayment_eur,
-                                expected_amount=float(expected)
+                                expected_amount=float(expected),
+                                discount_code=discount_code if is_purchase else None
                             )
                         except Exception as log_e:
                             logger.warning(f"Failed to send purchase log for {order_id}: {log_e}")

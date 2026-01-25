@@ -1950,7 +1950,8 @@ async def send_purchase_log(
     eur_amount: float = None,
     basket_snapshot: list = None,  # List of purchased products
     overpayment_eur: float = None,  # Overpayment amount credited to balance
-    expected_amount: float = None  # Expected payment amount (for under/overpayment context)
+    expected_amount: float = None,  # Expected payment amount (for under/overpayment context)
+    discount_code: str = None  # Discount code used (if any)
 ):
     """
     Send a purchase/payment log to the logs channel for transparency.
@@ -2038,6 +2039,10 @@ async def send_purchase_log(
                     msg += f"  • {count}x {safe_product} (€{price:.2f} each)\n"
                 else:
                     msg += f"  • {safe_product} (€{price:.2f})\n"
+        
+        # Discount code (if used)
+        if discount_code:
+            msg += f"\n🏷️ <b>Discount Code:</b> <code>{discount_code}</code>"
         
         # Overpayment/Underpayment notice
         if overpayment_eur and overpayment_eur > 0:
