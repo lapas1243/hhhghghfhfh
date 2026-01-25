@@ -420,11 +420,13 @@ async def check_solana_deposits(context):
                     
                     # Handle Overpayment
                     surplus = sol_balance - expected
+                    overpayment_eur = None
                     if surplus > Decimal("0.0005"):
                         try:
                             if price:
                                 surplus_eur = (surplus * price).quantize(Decimal("0.01"))
                                 if surplus_eur > 0:
+                                    overpayment_eur = float(surplus_eur)
                                     logger.info(f"💰 Overpayment of {surplus} SOL ({surplus_eur} EUR) detected for {order_id}")
                                     from payment import credit_user_balance
                                     await credit_user_balance(user_id, surplus_eur, f"Overpayment bonus for order {order_id}", context)
@@ -471,7 +473,9 @@ async def check_solana_deposits(context):
                                 payment_type=payment_type,
                                 tx_signature=tx_signature,
                                 eur_amount=target_eur,
-                                basket_snapshot=basket_snapshot if is_purchase else None
+                                basket_snapshot=basket_snapshot if is_purchase else None,
+                                overpayment_eur=overpayment_eur,
+                                expected_amount=float(expected)
                             )
                         except Exception as log_e:
                             logger.warning(f"Failed to send purchase log for {order_id}: {log_e}")
@@ -517,7 +521,8 @@ async def check_solana_deposits(context):
                                         is_success=False,
                                         payment_type="underpayment",
                                         tx_signature=tx_signature,
-                                        eur_amount=float(refund_eur)
+                                        eur_amount=float(refund_eur),
+                                        expected_amount=float(expected)
                                     )
                                 except Exception as log_e:
                                     logger.warning(f"Failed to send underpayment log for {order_id}: {log_e}")

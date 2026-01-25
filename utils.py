@@ -1945,10 +1945,12 @@ async def send_purchase_log(
     currency: str,
     payment_id: str,
     is_success: bool,
-    payment_type: str = "purchase",  # "purchase" or "refill"
+    payment_type: str = "purchase",  # "purchase", "refill", or "underpayment"
     tx_signature: str = None,
     eur_amount: float = None,
-    basket_snapshot: list = None  # List of purchased products
+    basket_snapshot: list = None,  # List of purchased products
+    overpayment_eur: float = None,  # Overpayment amount credited to balance
+    expected_amount: float = None  # Expected payment amount (for under/overpayment context)
 ):
     """
     Send a purchase/payment log to the logs channel for transparency.
@@ -2036,6 +2038,14 @@ async def send_purchase_log(
                     msg += f"  • {count}x {safe_product} (€{price:.2f} each)\n"
                 else:
                     msg += f"  • {safe_product} (€{price:.2f})\n"
+        
+        # Overpayment/Underpayment notice
+        if overpayment_eur and overpayment_eur > 0:
+            msg += f"\n💎 <b>Overpayment Bonus:</b> +€{overpayment_eur:.2f} credited to balance"
+        
+        if payment_type == "underpayment" and expected_amount:
+            msg += f"\n⚠️ <b>Expected:</b> {expected_amount} {currency} | <b>Received:</b> {amount_paid} {currency}"
+            msg += f"\n💸 <b>Refunded:</b> €{eur_amount:.2f} to user balance"
         
         # Solscan link
         if tx_signature:
