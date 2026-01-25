@@ -1925,6 +1925,18 @@ async def send_media_group_with_retry(
     return None
 
 
+def _escape_markdown(text: str) -> str:
+    """Escape special Markdown characters to prevent parsing errors."""
+    if not text:
+        return text
+    # Characters that need escaping in Markdown
+    special_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+    result = str(text)
+    for char in special_chars:
+        result = result.replace(char, f'\\{char}')
+    return result
+
+
 async def send_purchase_log(
     bot: Bot,
     user_id: int,
@@ -1967,19 +1979,29 @@ async def send_purchase_log(
         status_emoji = "✅" if is_success else "❌"
         status_text = "SUCCESSFUL" if is_success else "FAILED"
         
-        # Payment type emoji
-        type_emoji = "🛒" if payment_type == "purchase" else "💰"
-        type_text = "Purchase" if payment_type == "purchase" else "Top-Up"
+        # Payment type emoji and text
+        if payment_type == "purchase":
+            type_emoji = "🛒"
+            type_text = "Purchase"
+        elif payment_type == "refill":
+            type_emoji = "💰"
+            type_text = "Top-Up"
+        else:
+            type_emoji = "⚠️"
+            type_text = "Underpayment"
         
-        # Build the log message
-        msg = f"{status_emoji} **{status_text} {type_text.upper()}** {type_emoji}\n\n"
-        msg += f"👤 **Buyer:** @{username} (ID: `{user_id}`)\n"
-        msg += f"💵 **Amount:** `{amount_paid}` {currency}"
+        # Escape username for Markdown safety
+        safe_username = _escape_markdown(username) if username else str(user_id)
+        
+        # Build the log message using HTML (more reliable than Markdown)
+        msg = f"{status_emoji} <b>{status_text} {type_text.upper()}</b> {type_emoji}\n\n"
+        msg += f"👤 <b>Buyer:</b> @{safe_username} (ID: <code>{user_id}</code>)\n"
+        msg += f"💵 <b>Amount:</b> <code>{amount_paid}</code> {currency}"
         if eur_amount:
             msg += f" (~€{eur_amount:.2f})"
         msg += "\n"
-        msg += f"📅 **Date:** {date_str}\n"
-        msg += f"🔖 **Payment ID:** `{payment_id}`\n"
+        msg += f"📅 <b>Date:</b> {date_str}\n"
+        msg += f"🔖 <b>Payment ID:</b> <code>{payment_id}</code>\n"
         
         # Product details (for purchases)
         if basket_snapshot and payment_type == "purchase":
@@ -1988,7 +2010,6 @@ async def send_purchase_log(
             for item in basket_snapshot:
                 product_name = item.get('name', 'Unknown')
                 product_size = item.get('size', '')
-                product_type = item.get('product_type', '')
                 
                 # Create a key for grouping
                 key = f"{product_name}"
@@ -2000,36 +2021,37 @@ async def send_purchase_log(
                 else:
                     product_counts[key] = {
                         'count': 1,
-                        'type': product_type,
                         'price': item.get('price', 0)
                     }
             
             # Build product list
             total_items = len(basket_snapshot)
-            msg += f"\n📦 **Products ({total_items} item{'s' if total_items != 1 else ''}):**\n"
+            msg += f"\n📦 <b>Products ({total_items} item{'s' if total_items != 1 else ''}):</b>\n"
             for product_key, details in product_counts.items():
+                # Escape product name for HTML
+                safe_product = product_key.replace('<', '&lt;').replace('>', '&gt;').replace('&', '&amp;')
                 count = details['count']
                 price = details['price']
                 if count > 1:
-                    msg += f"  • {count}x {product_key} (€{price:.2f} each)\n"
+                    msg += f"  • {count}x {safe_product} (€{price:.2f} each)\n"
                 else:
-                    msg += f"  • {product_key} (€{price:.2f})\n"
+                    msg += f"  • {safe_product} (€{price:.2f})\n"
         
-        # Solscan link (only for successful payments with tx signature)
+        # Solscan link
         if tx_signature:
             solscan_url = f"https://solscan.io/tx/{tx_signature}"
-            msg += f"\n🔗 **Transaction:** [Solscan]({solscan_url})"
+            msg += f"\n🔗 <b>Transaction:</b> <a href=\"{solscan_url}\">Solscan</a>"
         elif not is_success:
-            msg += f"\n🔗 **Transaction:** N/A (payment failed)"
+            msg += f"\n🔗 <b>Transaction:</b> N/A (payment failed)"
         else:
-            msg += f"\n🔗 **Transaction:** Pending sweep"
+            msg += f"\n🔗 <b>Transaction:</b> Pending sweep"
         
-        # Send to logs channel
+        # Send to logs channel using HTML parse mode (more reliable)
         result = await send_message_with_retry(
             bot,
             LOGS_CHANNEL_ID,
             msg,
-            parse_mode=ParseMode.MARKDOWN,
+            parse_mode=ParseMode.HTML,
             disable_web_page_preview=True
         )
         
