@@ -398,8 +398,16 @@ async def check_solana_deposits(context):
                     logger.warning(f"RPC Error checking wallet {pubkey_str}: {rpc_e}")
                     continue
                 
-                # 1. Check if Paid (allowing 99.5% tolerance)
-                if sol_balance > 0 and sol_balance >= (expected * Decimal("0.995")):
+                # Check if this is an open top-up (any amount accepted)
+                is_open_topup = "OPENTOPUP" in order_id
+                
+                # 1. Check if Paid (allowing 99.5% tolerance, or any amount for open top-ups)
+                # For open top-ups, accept any amount > 0.001 SOL (to avoid dust)
+                min_open_topup = Decimal("0.001")
+                is_paid = (is_open_topup and sol_balance >= min_open_topup) or \
+                          (not is_open_topup and sol_balance > 0 and sol_balance >= (expected * Decimal("0.995")))
+                
+                if is_paid:
                     logger.info(f"✅ Payment detected for Order {order_id}: {sol_balance} SOL")
                     
                     # Mark as Paid in DB
@@ -418,10 +426,10 @@ async def check_solana_deposits(context):
                     price = get_sol_price_eur()
                     eur_amount = float(sol_balance * price) if price else None
                     
-                    # Handle Overpayment
+                    # Handle Overpayment (not applicable for open top-ups)
                     surplus = sol_balance - expected
                     overpayment_eur = None
-                    if surplus > Decimal("0.0005"):
+                    if not is_open_topup and surplus > Decimal("0.0005"):
                         try:
                             if price:
                                 surplus_eur = (surplus * price).quantize(Decimal("0.01"))
@@ -442,7 +450,13 @@ async def check_solana_deposits(context):
                     if deposit_info:
                         is_purchase = deposit_info['is_purchase']
                         payment_type = "purchase" if is_purchase else "refill"
-                        target_eur = float(deposit_info['target_eur_amount']) if deposit_info['target_eur_amount'] else eur_amount
+                        target_eur_from_db = deposit_info['target_eur_amount'] if deposit_info['target_eur_amount'] else 0
+                        
+                        # For open top-ups, use actual received EUR amount
+                        if not is_purchase and (target_eur_from_db < 1 or "OPENTOPUP" in order_id):
+                            target_eur = eur_amount  # Use actual received amount
+                        else:
+                            target_eur = float(target_eur_from_db) if target_eur_from_db else eur_amount
                         
                         if is_purchase:
                             basket_snapshot = deposit_info['basket_snapshot'] if 'basket_snapshot' in deposit_info.keys() else None
@@ -456,8 +470,22 @@ async def check_solana_deposits(context):
                             
                             await process_successful_crypto_purchase(user_id, basket_snapshot, discount_code, order_id, context)
                         else:
-                            # Refill
-                            amount_eur = Decimal(str(deposit_info['target_eur_amount'])) if deposit_info['target_eur_amount'] else Decimal("0.0")
+                            # Refill / Top-Up
+                            target_amount = deposit_info['target_eur_amount'] if deposit_info['target_eur_amount'] else 0
+                            
+                            # Check if this is an open top-up (target_eur_amount = 0 or very small)
+                            if target_amount < 1 or "OPENTOPUP" in order_id:
+                                # Open top-up: credit the actual received amount converted to EUR
+                                if price:
+                                    amount_eur = (sol_balance * price).quantize(Decimal("0.01"))
+                                    logger.info(f"💰 Open top-up: {sol_balance} SOL = {amount_eur} EUR for {order_id}")
+                                else:
+                                    logger.error(f"Cannot process open top-up without price for {order_id}")
+                                    continue
+                            else:
+                                # Fixed amount refill
+                                amount_eur = Decimal(str(target_amount))
+                            
                             await process_successful_refill(user_id, amount_eur, order_id, context)
                         
                         # 📋 Send purchase log to logs channel
@@ -487,8 +515,8 @@ async def check_solana_deposits(context):
                     if ENABLE_AUTO_SWEEP and ADMIN_WALLET:
                         asyncio.create_task(sweep_wallet(wallet, lamports))
                 
-                # 2. Check for Underpayment - IMMEDIATE
-                elif sol_balance > 0:
+                # 2. Check for Underpayment - IMMEDIATE (not applicable for open top-ups)
+                elif sol_balance > 0 and not is_open_topup:
                     logger.info(f"📉 Underpayment detected for {order_id} ({sol_balance} SOL). Refunding immediately.")
                     try:
                         price = get_sol_price_eur()

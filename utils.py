@@ -144,7 +144,7 @@ LANGUAGES = {
         "refund_note": "Note: No refunds.",
         "shop_button": "Shop",
         "profile_button": "Profile",
-        "top_up_button": "💳 Top Up Balance",
+        "top_up_button": "Top Up",
         "reviews_button": "Reviews",
         "price_list_button": "Price List",
         "language_button": "Language",
@@ -256,7 +256,6 @@ LANGUAGES = {
 
         # --- Profile & History ---
         "profile_title": "Your Profile",
-        "top_up_note": "💡 Top up your balance to make purchases!",
         "purchase_history_button": "Purchase History",
         "back_profile_button": "Back to Profile",
         "purchase_history_title": "Purchase History",
@@ -489,7 +488,7 @@ LANGUAGES = {
         "refund_note": "Pastaba: Pinigai negrąžinami.",
         "shop_button": "Parduotuvė", # <-- Example Translation
         "profile_button": "Profilis", # <-- Example Translation
-        "top_up_button": "💳 Papildyti balansą", # <-- Example Translation
+        "top_up_button": "Papildyti", # <-- Example Translation
         "reviews_button": "Atsiliepimai", # <-- Example Translation
         "price_list_button": "Kainoraštis", # <-- Example Translation
         "language_button": "Kalba", # <-- Example Translation
@@ -601,7 +600,6 @@ LANGUAGES = {
 
         # --- Profile & History ---
         "profile_title": "Jūsų profilis",
-        "top_up_note": "💡 Papildykite balansą, kad galėtumėte pirkti!",
         "purchase_history_button": "Pirkimų istorija",
         "back_profile_button": "Atgal į profilį",
         "purchase_history_title": "Pirkimų istorija",
@@ -833,7 +831,7 @@ LANGUAGES = {
         "refund_note": "Примечание: Возврат средств невозможен.",
         "shop_button": "Магазин", # <-- Example Translation
         "profile_button": "Профиль", # <-- Example Translation
-        "top_up_button": "💳 Пополнить баланс", # <-- Example Translation
+        "top_up_button": "Пополнить", # <-- Example Translation
         "reviews_button": "Отзывы", # <-- Example Translation
         "price_list_button": "Прайс-лист", # <-- Example Translation
         "language_button": "Язык", # <-- Example Translation
@@ -945,7 +943,6 @@ LANGUAGES = {
 
         # --- Profile & History ---
         "profile_title": "Ваш профиль",
-        "top_up_note": "💡 Пополните баланс, чтобы совершать покупки!",
         "purchase_history_button": "История покупок",
         "back_profile_button": "Назад в профиль",
         "purchase_history_title": "История покупок",

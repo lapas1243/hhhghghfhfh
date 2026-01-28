@@ -209,6 +209,128 @@ async def create_nowpayments_payment(
         return {'error': 'internal_server_error', 'details': str(e)}
 
 
+# --- Open Top-Up Invoice (Any Amount) ---
+async def create_open_topup_invoice(user_id: int) -> dict:
+    """
+    Creates an open top-up invoice where user can send any amount.
+    The received amount will be converted to EUR and credited to balance.
+    """
+    logger.info(f"Creating open top-up invoice for user {user_id}")
+    
+    # Import here to avoid circular imports
+    from payment_solana import create_solana_payment, get_sol_price_eur
+    
+    # Create unique order ID with OPEN marker
+    order_id = f"USER{user_id}_OPENTOPUP_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+    
+    # Use a minimal expected amount (0.001 SOL ~ $0.25) - just for wallet creation
+    # Any amount received will be credited
+    minimal_eur = Decimal("0.25")
+    
+    try:
+        payment_result = await create_solana_payment(user_id, order_id, float(minimal_eur))
+        
+        if 'error' in payment_result:
+            logger.error(f"Failed to create open top-up payment: {payment_result}")
+            return payment_result
+        
+        # Add to pending deposits with special marker for open top-up
+        add_success = await asyncio.to_thread(
+            add_pending_deposit,
+            order_id,
+            user_id,
+            'sol',
+            0.0,  # Target EUR is 0 - means "open amount"
+            0.0,  # Expected SOL is 0 - means "any amount"
+            is_purchase=False,
+            basket_snapshot=None,
+            discount_code=None
+        )
+        
+        if not add_success:
+            logger.error(f"Failed to add open top-up pending deposit for {order_id}")
+            return {'error': 'pending_db_error'}
+        
+        # Get current SOL price for display
+        sol_price = get_sol_price_eur()
+        
+        result = {
+            'payment_id': payment_result['payment_id'],
+            'pay_address': payment_result['pay_address'],
+            'pay_currency': 'SOL',
+            'sol_price_eur': float(sol_price) if sol_price else None,
+            'is_open_topup': True,
+            'expiration_estimate_date': (datetime.now(timezone.utc) + timedelta(minutes=20)).isoformat()
+        }
+        
+        logger.info(f"Successfully created open top-up invoice {order_id} for user {user_id}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error creating open top-up invoice for user {user_id}: {e}", exc_info=True)
+        return {'error': 'internal_server_error', 'details': str(e)}
+
+
+async def display_open_topup_invoice(update: Update, context: ContextTypes.DEFAULT_TYPE, payment_data: dict):
+    """Displays the open top-up invoice - user can send any amount."""
+    query = update.callback_query
+    chat_id = query.message.chat_id
+    lang = context.user_data.get("lang", "en")
+    lang_data = LANGUAGES.get(lang, LANGUAGES['en'])
+    
+    try:
+        pay_address = payment_data.get('pay_address')
+        payment_id = payment_data.get('payment_id')
+        sol_price = payment_data.get('sol_price_eur')
+        expiration_date_str = payment_data.get('expiration_estimate_date')
+        
+        if not pay_address or not payment_id:
+            logger.error(f"Missing data in open top-up invoice: {payment_data}")
+            raise ValueError("Missing payment address or ID")
+        
+        # Store payment_id for potential cancellation
+        context.user_data['pending_payment_id'] = payment_id
+        
+        expiry_time_display = format_expiration_time(expiration_date_str)
+        
+        # Build message
+        msg = f"💰 <b>Top Up Your Balance</b>\n\n"
+        msg += f"Send <b>any amount</b> of SOL to this address:\n\n"
+        msg += f"<code>{pay_address}</code>\n\n"
+        
+        if sol_price:
+            msg += f"📊 <b>Current Rate:</b> 1 SOL ≈ €{sol_price:.2f}\n\n"
+            msg += f"<b>Examples:</b>\n"
+            msg += f"  • 0.05 SOL ≈ €{0.05 * sol_price:.2f}\n"
+            msg += f"  • 0.1 SOL ≈ €{0.1 * sol_price:.2f}\n"
+            msg += f"  • 0.5 SOL ≈ €{0.5 * sol_price:.2f}\n"
+            msg += f"  • 1 SOL ≈ €{sol_price:.2f}\n\n"
+        
+        msg += f"⏰ <b>Expires:</b> {expiry_time_display}\n"
+        msg += f"🔖 <b>Payment ID:</b> <code>{payment_id}</code>\n\n"
+        msg += f"✅ Your balance will be credited automatically after confirmation."
+        
+        cancel_button_text = lang_data.get("cancel_payment_button", "Cancel")
+        keyboard = [[InlineKeyboardButton(f"❌ {cancel_button_text}", callback_data="cancel_crypto_payment")]]
+        
+        await query.edit_message_text(
+            msg, 
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode=ParseMode.HTML,
+            disable_web_page_preview=True
+        )
+        
+    except Exception as e:
+        logger.error(f"Error displaying open top-up invoice: {e}", exc_info=True)
+        back_button_text = lang_data.get("back_profile_button", "Back to Profile")
+        back_button_markup = InlineKeyboardMarkup([[InlineKeyboardButton(f"⬅️ {back_button_text}", callback_data="profile")]])
+        error_msg = "❌ Error displaying payment details. Please try again."
+        try:
+            await query.edit_message_text(error_msg, reply_markup=back_button_markup, parse_mode=None)
+        except Exception:
+            pass
+
+
 # --- Callback Handler for Crypto Selection during Refill ---
 async def handle_select_refill_crypto(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles the user selecting SOL for refill, creates Solana invoice."""

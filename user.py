@@ -875,9 +875,8 @@ async def handle_profile(update: Update, context: ContextTypes.DEFAULT_TYPE, par
         status_label = lang_data.get("status_label", "Status"); balance_label = lang_data.get("balance_label", "Balance")
         purchases_label = lang_data.get("purchases_label", "Total Purchases"); basket_label = lang_data.get("basket_label", "Basket Items")
         profile_title = lang_data.get("profile_title", "Your Profile")
-        top_up_note = lang_data.get("top_up_note", "💡 Top up your balance to make purchases!")
         profile_msg = (f"🎉 {profile_title}\n\n" f"👤 {status_label}: {status} {progress_bar}\n" f"💰 {balance_label}: {balance_str} EUR\n"
-                       f"📦 {purchases_label}: {purchases}\n" f"🛒 {basket_label}: {basket_count}\n\n{top_up_note}")
+                       f"📦 {purchases_label}: {purchases}\n" f"🛒 {basket_label}: {basket_count}")
 
         top_up_button_text = lang_data.get("top_up_button", "Top Up"); view_basket_button_text = lang_data.get("view_basket_button", "View Basket")
         purchase_history_button_text = lang_data.get("purchase_history_button", "Purchase History"); home_button_text = lang_data.get("home_button", "Home")
@@ -1286,49 +1285,17 @@ async def handle_view_basket(update: Update, context: ContextTypes.DEFAULT_TYPE,
         msg += f"\n{EMOJI_DISCOUNT} {reseller_discount_label}: -{reseller_discount_str} EUR"
     msg += discount_applied_str
     msg += f"\n💳 **{total_label}: {final_total_str} EUR**"
-    
-    # Get user balance and show status
-    user_balance = Decimal('0.0')
-    try:
-        conn_bal = get_db_connection()
-        c_bal = conn_bal.cursor()
-        c_bal.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
-        bal_row = c_bal.fetchone()
-        if bal_row:
-            user_balance = Decimal(str(bal_row['balance']))
-        conn_bal.close()
-    except Exception as e:
-        logger.warning(f"Error checking balance in basket view: {e}")
-    
-    balance_str = format_currency(user_balance)
-    msg += f"\n\n💰 Your Balance: {balance_str} EUR"
-    
-    if user_balance >= final_total:
-        msg += "\n✅ Ready to pay!"
-    else:
-        needed = final_total - user_balance
-        needed_str = format_currency(needed)
-        msg += f"\n⚠️ You need {needed_str} EUR more - Please top up first!"
 
     pay_now_button_text = lang_data.get("pay_now_button", "Pay Now"); clear_all_button_text = lang_data.get("clear_all_button", "Clear All")
     remove_discount_button_text = lang_data.get("remove_discount_button", "Remove Discount"); apply_discount_button_text = lang_data.get("apply_discount_button", "Apply Discount Code")
     shop_more_button_text = lang_data.get("shop_more_button", "Shop More"); home_button_text = lang_data.get("home_button", "Home")
-    top_up_button_text = lang_data.get("top_up_button", "Top Up Balance")
 
-    # Show different buttons based on balance
-    if user_balance >= final_total:
-        action_buttons = [
-            [InlineKeyboardButton(f"✅ {pay_now_button_text}", callback_data="confirm_pay"), InlineKeyboardButton(f"{basket_emoji} {clear_all_button_text}", callback_data="clear_basket")],
-            *([[InlineKeyboardButton(f"❌ {remove_discount_button_text}", callback_data="remove_discount")]] if context.user_data.get('applied_discount') else []),
-            [InlineKeyboardButton(f"{EMOJI_DISCOUNT} {apply_discount_button_text}", callback_data="apply_discount_start")],
-            [InlineKeyboardButton(f"{EMOJI_SHOP} {shop_more_button_text}", callback_data="shop"), InlineKeyboardButton(f"{EMOJI_HOME} {home_button_text}", callback_data="back_start")]
-        ]
-    else:
-        action_buttons = [
-            [InlineKeyboardButton(f"{EMOJI_REFILL} {top_up_button_text}", callback_data="refill")],
-            [InlineKeyboardButton(f"{EMOJI_DISCOUNT} {apply_discount_button_text}", callback_data="apply_discount_start"), InlineKeyboardButton(f"{basket_emoji} {clear_all_button_text}", callback_data="clear_basket")],
-            [InlineKeyboardButton(f"{EMOJI_SHOP} {shop_more_button_text}", callback_data="shop"), InlineKeyboardButton(f"{EMOJI_HOME} {home_button_text}", callback_data="back_start")]
-        ]
+    action_buttons = [
+        [InlineKeyboardButton(f"💳 {pay_now_button_text}", callback_data="confirm_pay"), InlineKeyboardButton(f"{basket_emoji} {clear_all_button_text}", callback_data="clear_basket")],
+        *([[InlineKeyboardButton(f"❌ {remove_discount_button_text}", callback_data="remove_discount")]] if context.user_data.get('applied_discount') else []),
+        [InlineKeyboardButton(f"{EMOJI_DISCOUNT} {apply_discount_button_text}", callback_data="apply_discount_start")],
+        [InlineKeyboardButton(f"{EMOJI_SHOP} {shop_more_button_text}", callback_data="shop"), InlineKeyboardButton(f"{EMOJI_HOME} {home_button_text}", callback_data="back_start")]
+    ]
     final_keyboard = keyboard_items + action_buttons
 
     try:
@@ -1658,40 +1625,27 @@ async def handle_confirm_pay(update: Update, context: ContextTypes.DEFAULT_TYPE,
             try: pass # User notification handled in process_purchase_with_balance
             except telegram_error.BadRequest: pass
     else:
-        logger.info(f"Insufficient balance user {user_id}. Prompting to top up first.")
+        logger.info(f"Insufficient balance user {user_id}. Prompting for crypto payment or discount.")
+        context.user_data['basket_pay_snapshot'] = valid_basket_items_snapshot
+        context.user_data['basket_pay_total_eur'] = float(final_total)
+        context.user_data['basket_pay_discount_code'] = discount_code_to_use
         
-        # Unreserve items since user needs to top up first
-        try:
-            _unreserve_basket_items(valid_basket_items_snapshot)
-            logger.info(f"Un-reserved items for user {user_id} - needs to top up first")
-        except Exception as unreserve_e:
-            logger.warning(f"Error unreserving items for user {user_id}: {unreserve_e}")
-        
-        # Calculate how much more they need
-        needed_amount = final_total - user_balance
-        
-        # Build clear message
-        insufficient_msg = f"⚠️ <b>Insufficient Balance!</b>\n\n"
-        insufficient_msg += f"💰 Your Balance: <b>{format_currency(user_balance)} EUR</b>\n"
-        insufficient_msg += f"🛒 Cart Total: <b>{format_currency(final_total)} EUR</b>\n"
-        insufficient_msg += f"📊 You need: <b>{format_currency(needed_amount)} EUR</b> more\n\n"
-        insufficient_msg += f"💡 <b>Please top up your balance first, then come back to complete your purchase!</b>"
-        
-        top_up_button = lang_data.get("top_up_button", "💳 Top Up Balance")
+        # Track reservation for abandonment cleanup  
+        from utils import track_reservation
+        track_reservation(user_id, valid_basket_items_snapshot, "basket")
+        insufficient_msg_template = lang_data.get("insufficient_balance_pay_option", "⚠️ Insufficient Balance! ({balance} / {required} EUR)")
+        insufficient_msg = insufficient_msg_template.format(balance=format_currency(user_balance), required=format_currency(final_total))
+        prompt_msg = lang_data.get("prompt_discount_or_pay", "Do you have a discount code to apply before paying with crypto?")
+        pay_crypto_button = lang_data.get("pay_crypto_button", "💳 Pay with Crypto")
         apply_discount_button = lang_data.get("apply_discount_pay_button", "🏷️ Apply Discount Code")
         back_basket_button = lang_data.get("back_basket_button", "Back to Basket")
-        
         keyboard = [
-             [InlineKeyboardButton(top_up_button, callback_data="refill")],
+             [InlineKeyboardButton(pay_crypto_button, callback_data="skip_discount_basket_pay")],
              [InlineKeyboardButton(apply_discount_button, callback_data="apply_discount_basket_pay")],
              [InlineKeyboardButton(f"⬅️ {back_basket_button}", callback_data="view_basket")]
         ]
-        
-        # Store discount code in case they apply one after topping up
-        context.user_data['pending_discount_code'] = discount_code_to_use
-        
-        await query.edit_message_text(insufficient_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
-        await query.answer("Please top up first!", show_alert=False)
+        await query.edit_message_text(f"{insufficient_msg}\n\n{prompt_msg}", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
+        await query.answer()
 # --- END handle_confirm_pay ---
 
 
@@ -1738,94 +1692,47 @@ async def handle_basket_discount_code_message(update: Update, context: ContextTy
         return await handle_view_basket(update, context)
 
     if not entered_code:
-        await send_message_with_retry(context.bot, chat_id, lang_data.get("no_code_entered", "No code entered. Please try again or go back to basket."), parse_mode=None)
+        await send_message_with_retry(context.bot, chat_id, lang_data.get("no_code_entered", "No code entered."), parse_mode=None)
+        await _show_crypto_choices_for_basket(update, context)
         return
 
     # SECURITY: Use atomic validation to prevent race conditions and multiple uses
     code_valid, validation_message, discount_details = validate_and_apply_discount_atomic(entered_code, total_after_reseller_float, user_id)
-    
-    try: await context.bot.delete_message(chat_id=chat_id, message_id=update.message.message_id)
-    except Exception as e: logger.warning(f"Could not delete user's discount code message: {e}")
-    
+    feedback_msg_template = ""
     if code_valid and discount_details:
-        new_final_total = Decimal(str(discount_details['final_total']))
-        context.user_data['basket_pay_total_eur'] = float(new_final_total)
+        new_final_total_float = discount_details['final_total']
+        context.user_data['basket_pay_total_eur'] = new_final_total_float
         context.user_data['basket_pay_discount_code'] = entered_code
-        logger.info(f"User {user_id} applied valid basket discount '{entered_code}'. New total: {new_final_total:.2f} EUR")
-        
-        # Check balance after discount
-        user_balance = Decimal('0.0')
-        try:
-            conn_bal = get_db_connection()
-            c_bal = conn_bal.cursor()
-            c_bal.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
-            bal_row = c_bal.fetchone()
-            if bal_row:
-                user_balance = Decimal(str(bal_row['balance']))
-            conn_bal.close()
-        except Exception as e:
-            logger.error(f"Error checking balance after discount: {e}")
-        
-        if user_balance >= new_final_total:
-            # Sufficient balance after discount - process payment!
-            logger.info(f"User {user_id} now has sufficient balance after discount. Processing payment.")
-            await send_message_with_retry(context.bot, chat_id, f"✅ Code '{entered_code}' applied! New total: {format_currency(new_final_total)} EUR. Processing payment...", parse_mode=None)
-            
-            snapshot = context.user_data.get('basket_pay_snapshot')
-            success = await payment.process_purchase_with_balance(user_id, new_final_total, snapshot, entered_code, context)
-            
-            from utils import clear_reservation_tracking
-            clear_reservation_tracking(user_id)
-            
-            context.user_data.pop('basket_pay_snapshot', None)
-            context.user_data.pop('basket_pay_total_eur', None)
-            context.user_data.pop('basket_pay_discount_code', None)
-        else:
-            # Still insufficient - show top up prompt
-            needed_amount = new_final_total - user_balance
-            
-            msg = f"✅ Code '<b>{entered_code}</b>' applied!\n\n"
-            msg += f"💰 New Total: <b>{format_currency(new_final_total)} EUR</b>\n"
-            msg += f"💳 Your Balance: <b>{format_currency(user_balance)} EUR</b>\n"
-            msg += f"📊 You still need: <b>{format_currency(needed_amount)} EUR</b>\n\n"
-            msg += f"💡 <b>Please top up to complete your purchase!</b>"
-            
-            top_up_button = lang_data.get("top_up_button", "💳 Top Up Balance")
-            back_basket_button = lang_data.get("back_basket_button", "Back to Basket")
-            
-            keyboard = [
-                [InlineKeyboardButton(top_up_button, callback_data="refill")],
-                [InlineKeyboardButton(f"⬅️ {back_basket_button}", callback_data="view_basket")]
-            ]
-            await send_message_with_retry(context.bot, chat_id, msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
+        logger.info(f"User {user_id} applied valid basket discount '{entered_code}'. New FINAL total for crypto: {new_final_total_float:.2f} EUR")
+        feedback_msg_template = lang_data.get("basket_pay_code_applied", "✅ Code '{code}' applied. New total: {total} EUR. Choose crypto:")
+        feedback_msg = feedback_msg_template.format(code=entered_code, total=format_currency(new_final_total_float))
     else:
-        # Invalid code
         context.user_data['basket_pay_discount_code'] = None
         logger.warning(f"User {user_id} entered invalid basket discount '{entered_code}': {validation_message}")
-        
-        msg = f"❌ Code invalid: {validation_message}\n\nPlease try another code or top up your balance."
-        
-        apply_discount_button = lang_data.get("apply_discount_pay_button", "🏷️ Try Another Code")
-        top_up_button = lang_data.get("top_up_button", "💳 Top Up Balance")
-        back_basket_button = lang_data.get("back_basket_button", "Back to Basket")
-        
-        keyboard = [
-            [InlineKeyboardButton(apply_discount_button, callback_data="apply_discount_basket_pay")],
-            [InlineKeyboardButton(top_up_button, callback_data="refill")],
-            [InlineKeyboardButton(f"⬅️ {back_basket_button}", callback_data="view_basket")]
-        ]
-        await send_message_with_retry(context.bot, chat_id, msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
+        total_to_pay_str = format_currency(total_after_reseller_float)
+        feedback_msg_template = lang_data.get("basket_pay_code_invalid", "❌ Code invalid: {reason}. Choose crypto to pay {total} EUR:")
+        feedback_msg = feedback_msg_template.format(reason=validation_message, total=total_to_pay_str)
+
+    try: await context.bot.delete_message(chat_id=chat_id, message_id=update.message.message_id)
+    except Exception as e: logger.warning(f"Could not delete user's discount code message: {e}")
+
+    await send_message_with_retry(context.bot, chat_id, feedback_msg, parse_mode=None)
+    await _show_crypto_choices_for_basket(update, context)
 
 
-# --- Handler to Skip Discount in Basket Pay Flow (Legacy - redirects to basket) ---
+# --- NEW: Handler to Skip Discount in Basket Pay Flow ---
 async def handle_skip_discount_basket_pay(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
-    """This handler is now legacy since we removed direct crypto payments for purchases.
-    Redirects users to the basket view."""
     query = update.callback_query
     user_id = query.from_user.id
-    logger.info(f"User {user_id} triggered legacy skip_discount_basket_pay. Redirecting to basket.")
-    await query.answer("Please top up first to make purchases.", show_alert=True)
-    return await handle_view_basket(update, context)
+
+    if 'basket_pay_snapshot' not in context.user_data or 'basket_pay_total_eur' not in context.user_data:
+        logger.error(f"User {user_id} clicked skip_discount_basket_pay but context is missing.")
+        await query.answer("Error: Context lost. Please go back to basket.", show_alert=True)
+        return await handle_view_basket(update, context)
+
+    context.user_data['basket_pay_discount_code'] = None
+    await query.answer("Proceeding to payment...")
+    await _show_crypto_choices_for_basket(update, context, edit_message=True)
 
 
 # --- NEW: Helper to Show Crypto Choices for Basket Payment ---
@@ -1971,89 +1878,36 @@ async def handle_pay_single_item(update: Update, context: ContextTypes.DEFAULT_T
         reseller_discount_amount = (original_price * reseller_discount_percent / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
         price_after_reseller = original_price - reseller_discount_amount
 
-        # Check user balance FIRST before proceeding
-        user_balance = Decimal('0.0')
-        try:
-            conn_bal = get_db_connection()
-            c_bal = conn_bal.cursor()
-            c_bal.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
-            bal_row = c_bal.fetchone()
-            if bal_row:
-                user_balance = Decimal(str(bal_row['balance']))
-            conn_bal.close()
-        except Exception as e:
-            logger.error(f"Error checking balance for single item pay: {e}")
+        context.user_data['single_item_pay_snapshot'] = single_item_snapshot
+        context.user_data['single_item_pay_final_eur'] = float(price_after_reseller)
+        context.user_data['single_item_pay_discount_code'] = None
+        context.user_data['single_item_pay_back_params'] = params
+        
+        # Track reservation for abandonment cleanup
+        from utils import track_reservation
+        track_reservation(user_id, single_item_snapshot, "single")
 
         item_name_display = f"{PRODUCT_TYPES.get(p_type, '')} {product_details_for_snapshot['name']} {product_details_for_snapshot['size']}"
         price_display_str = format_currency(price_after_reseller)
+        prompt_msg = (f"You are about to pay for: {item_name_display} ({price_display_str} EUR).\n\n"
+                      f"{lang_data.get('prompt_discount_or_pay', 'Do you have a discount code to apply?')}")
+        pay_now_direct_button_text = lang_data.get("pay_now_button", "Pay Now")
+        apply_discount_button_text = lang_data.get("apply_discount_pay_button", "🏷️ Apply Discount Code")
+        back_to_product_button_text = lang_data.get("back_options_button", "Back to Product")
 
-        # If user has sufficient balance, proceed with payment
-        if user_balance >= price_after_reseller:
-            context.user_data['single_item_pay_snapshot'] = single_item_snapshot
-            context.user_data['single_item_pay_final_eur'] = float(price_after_reseller)
-            context.user_data['single_item_pay_discount_code'] = None
-            context.user_data['single_item_pay_back_params'] = params
-            
-            # Track reservation for abandonment cleanup
-            from utils import track_reservation
-            track_reservation(user_id, single_item_snapshot, "single")
-
-            prompt_msg = (f"✅ You are about to pay for:\n\n"
-                          f"📦 <b>{item_name_display}</b>\n"
-                          f"💰 Price: <b>{price_display_str} EUR</b>\n"
-                          f"💳 Your Balance: <b>{format_currency(user_balance)} EUR</b>\n\n"
-                          f"Do you have a discount code to apply?")
-            pay_now_direct_button_text = lang_data.get("pay_now_button", "Pay Now")
-            apply_discount_button_text = lang_data.get("apply_discount_pay_button", "🏷️ Apply Discount Code")
-            back_to_product_button_text = lang_data.get("back_options_button", "Back to Product")
-
-            keyboard = [
-                 [InlineKeyboardButton(f"✅ {pay_now_direct_button_text}", callback_data="skip_discount_single_pay")],
-                 [InlineKeyboardButton(apply_discount_button_text, callback_data="apply_discount_single_pay")],
-                 [InlineKeyboardButton(f"⬅️ {back_to_product_button_text}", callback_data=f"product|{city_id}|{dist_id}|{p_type}|{size}|{price_str}")]
-            ]
-            try:
-                await query.edit_message_text(prompt_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
-            except telegram_error.BadRequest as e:
-                if "message is not modified" not in str(e).lower():
-                    logger.error(f"Error editing message for single item discount prompt: {e}")
-                    await send_message_with_retry(context.bot, chat_id, prompt_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
-                else:
-                    await query.answer()
-        else:
-            # INSUFFICIENT BALANCE - Unreserve and prompt to top up
-            logger.info(f"User {user_id} has insufficient balance for single item. Unreserving and prompting top up.")
-            
-            # Unreserve the item
-            try:
-                _unreserve_basket_items(single_item_snapshot)
-            except Exception as unreserve_e:
-                logger.warning(f"Error unreserving single item for user {user_id}: {unreserve_e}")
-            
-            needed_amount = price_after_reseller - user_balance
-            
-            insufficient_msg = f"⚠️ <b>Insufficient Balance!</b>\n\n"
-            insufficient_msg += f"📦 Item: <b>{item_name_display}</b>\n"
-            insufficient_msg += f"💰 Price: <b>{price_display_str} EUR</b>\n\n"
-            insufficient_msg += f"💳 Your Balance: <b>{format_currency(user_balance)} EUR</b>\n"
-            insufficient_msg += f"📊 You need: <b>{format_currency(needed_amount)} EUR</b> more\n\n"
-            insufficient_msg += f"💡 <b>Please top up your balance first, then come back to purchase!</b>"
-            
-            top_up_button = lang_data.get("top_up_button", "💳 Top Up Balance")
-            back_to_product_button_text = lang_data.get("back_options_button", "Back to Product")
-            
-            keyboard = [
-                 [InlineKeyboardButton(top_up_button, callback_data="refill")],
-                 [InlineKeyboardButton(f"⬅️ {back_to_product_button_text}", callback_data=f"product|{city_id}|{dist_id}|{p_type}|{size}|{price_str}")]
-            ]
-            try:
-                await query.edit_message_text(insufficient_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
-            except telegram_error.BadRequest as e:
-                if "message is not modified" not in str(e).lower():
-                    logger.error(f"Error editing message for insufficient balance prompt: {e}")
-                    await send_message_with_retry(context.bot, chat_id, insufficient_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
-            await query.answer("Please top up first!", show_alert=False)
-            return
+        keyboard = [
+             [InlineKeyboardButton(pay_now_direct_button_text, callback_data="skip_discount_single_pay")],
+             [InlineKeyboardButton(apply_discount_button_text, callback_data="apply_discount_single_pay")],
+             [InlineKeyboardButton(f"⬅️ {back_to_product_button_text}", callback_data=f"product|{city_id}|{dist_id}|{p_type}|{size}|{price_str}")]
+        ]
+        try:
+            await query.edit_message_text(prompt_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
+        except telegram_error.BadRequest as e:
+            if "message is not modified" not in str(e).lower():
+                logger.error(f"Error editing message for single item discount prompt: {e}")
+                await send_message_with_retry(context.bot, chat_id, prompt_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
+            else:
+                await query.answer()
     else:
         logger.error(f"Reached end of handle_pay_single_item without valid reservation for user {user_id}")
         try: await query.edit_message_text("❌ An internal error occurred during payment initiation.", parse_mode=None)
@@ -2399,6 +2253,10 @@ async def handle_leave_review_now(update: Update, context: ContextTypes.DEFAULT_
 
 # --- Refill Handlers ---
 async def handle_refill(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
+    """
+    Simplified Top Up - User gets wallet address immediately and can send any amount.
+    The received amount is automatically converted to EUR and credited to balance.
+    """
     query = update.callback_query
     user_id = query.from_user.id
     chat_id = query.message.chat_id
@@ -2410,27 +2268,38 @@ async def handle_refill(update: Update, context: ContextTypes.DEFAULT_TYPE, para
         logger.warning(f"User {user_id} tried to refill, but SOLANA_ADMIN_WALLET is not configured.")
         return
 
-    context.user_data['state'] = 'awaiting_refill_amount'
-    logger.info(f"User {user_id} initiated refill process. State -> awaiting_refill_amount.")
-
-    top_up_title = lang_data.get("top_up_title", "Top Up Balance")
-    enter_refill_amount_prompt = lang_data.get("enter_refill_amount_prompt", "Please reply with the amount in EUR you wish to add to your balance (e.g., 10 or 25.50).")
-    min_top_up_note_template = lang_data.get("min_top_up_note", "Minimum top up: {amount} EUR")
-    cancel_button_text = lang_data.get("cancel_button", "Cancel")
-    enter_amount_answer = lang_data.get("enter_amount_answer", "Enter the top-up amount.")
-
-    min_amount_str = format_currency(MIN_DEPOSIT_EUR)
-    min_top_up_note = min_top_up_note_template.format(amount=min_amount_str)
-    prompt_msg = (f"{EMOJI_REFILL} {top_up_title}\n\n{enter_refill_amount_prompt}\n\n{min_top_up_note}")
-    keyboard = [[InlineKeyboardButton(f"❌ {cancel_button_text}", callback_data="profile")]]
-
+    logger.info(f"User {user_id} initiated open top-up process.")
+    
+    # Import payment module for creating invoice
+    from payment import create_open_topup_invoice, display_open_topup_invoice
+    
+    preparing_msg = lang_data.get("preparing_invoice", "⏳ Preparing your top-up wallet...")
+    
     try:
-        await query.edit_message_text(prompt_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
-        await query.answer(enter_amount_answer)
+        await query.edit_message_text(preparing_msg, reply_markup=None, parse_mode=None)
     except telegram_error.BadRequest as e:
-        if "message is not modified" not in str(e).lower(): logger.error(f"Error editing refill prompt: {e}"); await send_message_with_retry(context.bot, chat_id, prompt_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None); await query.answer()
-        else: await query.answer(enter_amount_answer)
-    except Exception as e: logger.error(f"Unexpected error handle_refill: {e}", exc_info=True); error_occurred_answer = lang_data.get("error_occurred_answer", "An error occurred."); await query.answer(error_occurred_answer, show_alert=True)
+        if "message is not modified" not in str(e).lower():
+            logger.warning(f"Couldn't edit message in handle_refill: {e}")
+        await query.answer("Preparing...")
+    
+    # Create open top-up invoice (no specific amount required)
+    payment_result = await create_open_topup_invoice(user_id)
+    
+    if 'error' in payment_result:
+        error_code = payment_result['error']
+        logger.error(f"Failed to create open top-up invoice for user {user_id}: {error_code}")
+        
+        back_to_profile_button = lang_data.get("back_profile_button", "Back to Profile")
+        back_button_markup = InlineKeyboardMarkup([[InlineKeyboardButton(f"⬅️ {back_to_profile_button}", callback_data="profile")]])
+        
+        error_msg = lang_data.get("failed_invoice_creation", "❌ Failed to create top-up wallet. Please try again.")
+        try:
+            await query.edit_message_text(error_msg, reply_markup=back_button_markup, parse_mode=None)
+        except Exception:
+            await send_message_with_retry(context.bot, chat_id, error_msg, reply_markup=back_button_markup, parse_mode=None)
+    else:
+        logger.info(f"Open top-up invoice created for user {user_id}. Payment ID: {payment_result.get('payment_id')}")
+        await display_open_topup_invoice(update, context, payment_result)
 
 # <<< MODIFIED: Use SUPPORTED_CRYPTO dictionary >>>
 async def handle_refill_amount_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2598,32 +2467,10 @@ async def handle_single_item_discount_code_message(update: Update, context: Cont
         context.user_data.pop('single_item_pay_discount_code', None)
         context.user_data.pop('single_item_pay_back_params', None)
     else:
-        # Still insufficient balance even after discount - unreserve and prompt to top up
-        logger.info(f"User {user_id} still has insufficient balance after discount. Prompting to top up.")
-        await asyncio.to_thread(_unreserve_basket_items, snapshot)
-        
-        # Clear single item context
-        back_params = context.user_data.pop('single_item_pay_back_params', None)
-        context.user_data.pop('single_item_pay_snapshot', None)
-        context.user_data.pop('single_item_pay_final_eur', None)
-        context.user_data.pop('single_item_pay_discount_code', None)
-        
-        needed_amount = final_total_decimal - user_balance
-        
-        insufficient_msg = f"⚠️ <b>Still Insufficient Balance!</b>\n\n"
-        insufficient_msg += f"💰 Price after discount: <b>{format_currency(final_total_decimal)} EUR</b>\n"
-        insufficient_msg += f"💳 Your Balance: <b>{format_currency(user_balance)} EUR</b>\n"
-        insufficient_msg += f"📊 You need: <b>{format_currency(needed_amount)} EUR</b> more\n\n"
-        insufficient_msg += f"💡 <b>Please top up your balance first!</b>"
-        
-        top_up_button = lang_data.get("top_up_button", "💳 Top Up Balance")
-        back_button_text = lang_data.get("back_options_button", "Back to Product")
-        
-        keyboard = [[InlineKeyboardButton(top_up_button, callback_data="refill")]]
-        if back_params:
-            keyboard.append([InlineKeyboardButton(f"⬅️ {back_button_text}", callback_data=f"product|{back_params[0]}|{back_params[1]}|{back_params[2]}|{back_params[3]}|{back_params[4]}")])
-        
-        await send_message_with_retry(context.bot, chat_id, insufficient_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.HTML)
+        context.user_data['basket_pay_snapshot'] = snapshot # Use the general basket_pay keys for _show_crypto_choices
+        context.user_data['basket_pay_total_eur'] = float(final_total_decimal)
+        context.user_data['basket_pay_discount_code'] = discount_code_to_use
+        await _show_crypto_choices_for_basket(update, context, edit_message=False)
 
 # --- NEW: Handler to Ask for Discount Code in Single Item Pay Flow ---
 async def handle_apply_discount_single_pay(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
@@ -2656,14 +2503,13 @@ async def handle_apply_discount_single_pay(update: Update, context: ContextTypes
     await query.edit_message_text(prompt_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     await query.answer("Enter discount code in chat.")
 
-# --- NEW: Handler to Skip Discount in Single Item Pay Flow - Now pays with balance ---
+# --- NEW: Handler to Skip Discount in Single Item Pay Flow ---
 async def handle_skip_discount_single_pay(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     query = update.callback_query
     user_id = query.from_user.id
-    chat_id = query.message.chat_id
     lang, lang_data = _get_lang_data(context)
 
-    # Check if the single item payment context exists
+    # Check if the single item payment context exists (copied from handle_apply_discount_single_pay for robustness)
     if 'single_item_pay_snapshot' not in context.user_data or 'single_item_pay_final_eur' not in context.user_data or 'single_item_pay_back_params' not in context.user_data:
         logger.warning(f"User {user_id} clicked skip_discount_single_pay but single_item context is missing. Redirecting to shop.")
         await query.answer("Session expired. Redirecting to shop...", show_alert=True)
@@ -2673,23 +2519,7 @@ async def handle_skip_discount_single_pay(update: Update, context: ContextTypes.
         else:
             return await handle_shop(update, context)
 
-    # Get payment details
-    snapshot = context.user_data['single_item_pay_snapshot']
-    final_total = Decimal(str(context.user_data['single_item_pay_final_eur']))
-    discount_code = context.user_data.get('single_item_pay_discount_code')
-
-    await query.answer("Processing payment...")
-    
-    # Process payment with balance
-    logger.info(f"User {user_id} proceeding with balance payment for single item ({final_total:.2f} EUR)")
-    success = await payment.process_purchase_with_balance(user_id, final_total, snapshot, discount_code, context)
-    
-    # Clear reservation tracking since payment completed
-    from utils import clear_reservation_tracking
-    clear_reservation_tracking(user_id)
-    
-    # Clear context
-    context.user_data.pop('single_item_pay_snapshot', None)
-    context.user_data.pop('single_item_pay_final_eur', None)
-    context.user_data.pop('single_item_pay_discount_code', None)
-    context.user_data.pop('single_item_pay_back_params', None)
+    context.user_data['single_item_pay_discount_code'] = None # Ensure no discount code is carried forward
+    proceeding_msg = lang_data.get("proceeding_to_payment_answer", "Proceeding to payment options...")
+    await query.answer(proceeding_msg)
+    await _show_crypto_choices_for_basket(update, context, edit_message=True)
