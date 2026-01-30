@@ -31,7 +31,8 @@ from utils import (
     _get_lang_data,
     log_admin_action,
     get_first_primary_admin_id,
-    send_media_with_retry, send_media_group_with_retry
+    send_media_with_retry, send_media_group_with_retry,
+    send_purchase_log
 )
 import user
 
@@ -1105,6 +1106,37 @@ async def process_purchase_with_balance(user_id: int, amount_to_deduct: Decimal,
     if db_balance_deducted:
         logger.info(f"Calling _finalize_purchase for user {user_id} after balance deduction.")
         finalize_success = await _finalize_purchase(user_id, basket_snapshot, discount_code_used, context)
+        
+        if finalize_success:
+            # 📋 Send purchase log to logs channel for balance payments
+            try:
+                # Get username
+                conn_log = get_db_connection()
+                c_log = conn_log.cursor()
+                c_log.execute("SELECT username FROM users WHERE user_id = ?", (user_id,))
+                user_info = c_log.fetchone()
+                conn_log.close()
+                username = user_info['username'] if user_info and user_info['username'] else str(user_id)
+                
+                # Generate a payment ID for the balance purchase
+                balance_payment_id = f"USER{user_id}_BALANCE_{int(time.time())}"
+                
+                await send_purchase_log(
+                    bot=context.bot,
+                    user_id=user_id,
+                    username=username,
+                    amount_paid=float(amount_to_deduct),
+                    currency="EUR (Balance)",
+                    payment_id=balance_payment_id,
+                    is_success=True,
+                    payment_type="purchase",
+                    tx_signature=None,  # No blockchain tx for balance payments
+                    eur_amount=float(amount_to_deduct),
+                    basket_snapshot=basket_snapshot,
+                    discount_code=discount_code_used
+                )
+            except Exception as log_e:
+                logger.warning(f"Failed to send balance purchase log for user {user_id}: {log_e}")
         
         if not finalize_success:
             logger.critical(f"CRITICAL: Balance deducted for user {user_id} but _finalize_purchase FAILED! Attempting refund.")
