@@ -364,9 +364,9 @@ LANGUAGES = {
 
         # --- Admin ---
         "admin_menu": "🔧 Admin Panel\n\nManage the bot from here:",
-        "admin_select_city": "🏙️ Select City to Edit\n\nChoose a city:",
-        "admin_select_district": "🏘️ Select District in {city}\n\nPick a district:",
-        "admin_select_type": "💎 Select Product Type\n\nChoose or create a type:",
+        "admin_select_city": "🏙️ Pasirinkite miestą\n\nPasirinkite miestą:",
+        "admin_select_district": "🏘️ Pasirinkite rajoną {city}\n\nPasirinkite rajoną:",
+        "admin_select_type": "💎 Pasirinkite produkto tipą\n\nPasirinkite arba sukurkite tipą:",
         "admin_choose_action": "📦 Manage {type} in {city}, {district}\n\nWhat would you like to do?",
         "set_media_prompt_plain": "📸 Send a photo, video, or GIF to display above all messages:",
         "state_error": "❌ Error: Invalid State\n\nPlease start the 'Add New Product' process again from the Admin Panel.",
@@ -707,9 +707,9 @@ LANGUAGES = {
 
         # --- Admin ---
         "admin_menu": "🔧 Admin Panel\n\nManage the bot from here:",
-        "admin_select_city": "🏙️ Select City to Edit\n\nChoose a city:",
-        "admin_select_district": "🏘️ Select District in {city}\n\nPick a district:",
-        "admin_select_type": "💎 Select Product Type\n\nChoose or create a type:",
+        "admin_select_city": "🏙️ Pasirinkite miestą\n\nPasirinkite miestą:",
+        "admin_select_district": "🏘️ Pasirinkite rajoną {city}\n\nPasirinkite rajoną:",
+        "admin_select_type": "💎 Pasirinkite produkto tipą\n\nPasirinkite arba sukurkite tipą:",
         "admin_choose_action": "📦 Manage {type} in {city}, {district}\n\nWhat would you like to do?",
         "set_media_prompt_plain": "📸 Send a photo, video, or GIF to display above all messages:",
         "state_error": "❌ Error: Invalid State\n\nPlease start the 'Add New Product' process again from the Admin Panel.",

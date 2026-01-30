@@ -97,22 +97,20 @@ async def handle_viewer_admin_menu(update: Update, context: ContextTypes.DEFAULT
         if conn: conn.close() # Close connection if opened
 
     msg = (
-       f"🔧 Admin Dashboard (Viewer)\n\n"
-       f"👥 Total Users: {total_users}\n"
-       f"📦 Active Products: {active_products}\n\n"
-       "Select a report or log to view:"
+       f"🔧 Admin Valdymas (Peržiūra)\n\n"
+       f"👥 Viso vartotojų: {total_users}\n"
+       f"📦 Aktyvūs produktai: {active_products}\n\n"
+       "Pasirinkite ataskaitą ar žurnalą:"
     )
 
     # --- Keyboard Definition ---
     keyboard = [
-        [InlineKeyboardButton("📦 View Bot Stock", callback_data="view_stock")],
-        [InlineKeyboardButton("📜 View Added Products Log", callback_data="viewer_added_products|0")],
-        [InlineKeyboardButton("🚫 View Reviews", callback_data="adm_manage_reviews|0")], # Reuse admin handler
-        [InlineKeyboardButton("📋 Analyze Render Logs", callback_data="adm_analyze_logs_start")], # Log analysis for secondary admins
-        [InlineKeyboardButton("🔄 Recover Stuck SOL Funds", callback_data="adm_recover_stuck_funds")], # SOL recovery
-        # <<< Button REMOVED: Primary admin now handles user mgmt >>>
-        # [InlineKeyboardButton("👥 Manage Users", callback_data="adm_manage_users|0")], # Reuses admin handler
-        [InlineKeyboardButton("🏠 User Home Menu", callback_data="back_start")]
+        [InlineKeyboardButton("📦 Peržiūrėti atsargas", callback_data="view_stock")],
+        [InlineKeyboardButton("📜 Pridėtų produktų žurnalas", callback_data="viewer_added_products|0")],
+        [InlineKeyboardButton("🚫 Peržiūrėti atsiliepimus", callback_data="adm_manage_reviews|0")],
+        [InlineKeyboardButton("📋 Analizuoti Render žurnalus", callback_data="adm_analyze_logs_start")],
+        [InlineKeyboardButton("🔄 Atkurti įstrigusius SOL", callback_data="adm_recover_stuck_funds")],
+        [InlineKeyboardButton("🏠 Pagrindinis meniu", callback_data="back_start")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -223,7 +221,7 @@ async def handle_viewer_added_products(update: Update, context: ContextTypes.DEF
 
     # Determine correct back button based on admin type
     back_callback = "admin_menu" if primary_admin else "viewer_admin_menu"
-    keyboard.append([InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data=back_callback)])
+    keyboard.append([InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data=back_callback)])
 
     final_msg = "".join(msg_parts)
     try:
@@ -490,7 +488,7 @@ async def _display_user_list(update: Update, context: ContextTypes.DEFAULT_TYPE,
         if nav_buttons: keyboard.append(nav_buttons)
         msg_parts.append(f"\nPage {current_page}/{total_pages}")
 
-    keyboard.append([InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")])
+    keyboard.append([InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")])
     final_msg = "".join(msg_parts)
     try:
         if len(final_msg) > 4090: final_msg = final_msg[:4090] + "\n\n✂️ ... Message truncated."

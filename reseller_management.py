@@ -160,7 +160,7 @@ async def handle_manage_resellers_menu(update: Update, context: ContextTypes.DEF
 
     prompt_msg = ("👤 Manage Reseller Status\n\n"
                   "Please reply with the Telegram User ID of the person you want to manage as a reseller.")
-    keyboard = [[InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")]]
+    keyboard = [[InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")]]
 
     await query.edit_message_text(prompt_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     await query.answer("Enter User ID in chat.")
@@ -203,7 +203,7 @@ async def handle_reseller_manage_id_message(update: Update, context: ContextType
         logger.error(f"DB error fetching user {target_user_id} for reseller check: {e}")
         await send_message_with_retry(context.bot, chat_id, "❌ Database error checking user.", parse_mode=None)
         # Go back to admin menu on error
-        await send_message_with_retry(context.bot, chat_id, "Returning to menu...", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Admin Menu", callback_data="admin_menu")]]), parse_mode=None)
+        await send_message_with_retry(context.bot, chat_id, "Returning to menu...", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Admin meniu", callback_data="admin_menu")]]), parse_mode=None)
         return
     finally:
         if conn: conn.close()
@@ -211,7 +211,7 @@ async def handle_reseller_manage_id_message(update: Update, context: ContextType
     if not user_info:
         await send_message_with_retry(context.bot, chat_id, f"❌ User ID {target_user_id} not found in the bot's database.", parse_mode=None)
         # Go back to admin menu
-        await send_message_with_retry(context.bot, chat_id, "Returning to menu...", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Admin Menu", callback_data="admin_menu")]]), parse_mode=None)
+        await send_message_with_retry(context.bot, chat_id, "Returning to menu...", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Admin meniu", callback_data="admin_menu")]]), parse_mode=None)
         return
 
     # Display user info and toggle buttons
@@ -229,7 +229,7 @@ async def handle_reseller_manage_id_message(update: Update, context: ContextType
         keyboard.append([InlineKeyboardButton("✅ Enable Reseller Status", callback_data=f"reseller_toggle_status|{target_user_id}|0")]) # Offset 0 as placeholder
 
     keyboard.append([InlineKeyboardButton("⬅️ Manage Another User", callback_data="manage_resellers_menu")]) # Back to the prompt
-    keyboard.append([InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")])
+    keyboard.append([InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")])
 
     await send_message_with_retry(context.bot, chat_id, msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
@@ -282,7 +282,7 @@ async def handle_reseller_toggle_status(update: Update, context: ContextTypes.DE
             keyboard.append([InlineKeyboardButton("✅ Enable Reseller Status", callback_data=f"reseller_toggle_status|{target_user_id}|0")])
 
         keyboard.append([InlineKeyboardButton("⬅️ Manage Another User", callback_data="manage_resellers_menu")])
-        keyboard.append([InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")])
+        keyboard.append([InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")])
 
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
@@ -348,7 +348,7 @@ async def handle_manage_reseller_discounts_select_reseller(update: Update, conte
         if nav_buttons: keyboard.append(nav_buttons)
         msg += f"\nPage {current_page}/{total_pages}"
 
-    keyboard.append([InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")])
+    keyboard.append([InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")])
     try:
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     except telegram_error.BadRequest as e:

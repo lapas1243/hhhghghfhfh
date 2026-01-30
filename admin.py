@@ -172,7 +172,7 @@ async def _prepare_and_confirm_drop(
     required_context = ["admin_city", "admin_district", "admin_product_type", "pending_drop_size", "pending_drop_price"]
     if not all(k in user_data for k in required_context):
         logger.error(f"_prepare_and_confirm_drop: Context lost for user {user_id}.")
-        await send_message_with_retry(context.bot, chat_id, "❌ Error: Context lost. Please start adding product again.", parse_mode=None)
+        await send_message_with_retry(context.bot, chat_id, "❌ Klaida: Kontekstas prarastas. Pradėkite iš naujo.", parse_mode=None)
         keys_to_clear = ["state", "pending_drop", "pending_drop_size", "pending_drop_price", "collecting_media_group_id", "collected_media"]
         for key in keys_to_clear: user_data.pop(key, None)
         return
@@ -234,11 +234,11 @@ async def _prepare_and_confirm_drop(
     media_status = f"{media_count}/{total_submitted_media} Downloaded" if total_submitted_media > 0 else "No"
     if download_errors > 0: media_status += " (Errors)"
 
-    msg = (f"📦 Confirm New Drop\n\n🏙️ City: {city_name}\n🏘️ District: {dist_name}\n{type_emoji} Type: {type_name}\n"
-           f"📏 Size: {size_name}\n💰 Price: {price_str} EUR\n📝 Details: {text_display}\n"
-           f"📸 Media Attached: {media_status}\n\nAdd this drop?")
-    keyboard = [[InlineKeyboardButton("✅ Yes, Add Drop", callback_data="confirm_add_drop"),
-                InlineKeyboardButton("❌ No, Cancel", callback_data="cancel_add")]]
+    msg = (f"📦 Patvirtinti naują produktą\n\n🏙️ Miestas: {city_name}\n🏘️ Rajonas: {dist_name}\n{type_emoji} Tipas: {type_name}\n"
+           f"📏 Dydis: {size_name}\n💰 Kaina: {price_str} EUR\n📝 Aprašymas: {text_display}\n"
+           f"📸 Medija: {media_status}\n\nPridėti šį produktą?")
+    keyboard = [[InlineKeyboardButton("✅ Taip, pridėti", callback_data="confirm_add_drop"),
+                InlineKeyboardButton("❌ Ne, atšaukti", callback_data="cancel_add")]]
     await send_message_with_retry(context.bot, chat_id, msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 # --- Job Function to Process Collected Media Group ---
@@ -363,7 +363,7 @@ async def handle_adm_drop_details_message(update: Update, context: ContextTypes.
     required_context = ["admin_city", "admin_district", "admin_product_type", "pending_drop_size", "pending_drop_price"]
     if not all(k in user_specific_data for k in required_context):
         logger.warning(f"Context lost for user {user_id} before processing drop details.")
-        await send_message_with_retry(context.bot, chat_id, "❌ Error: Context lost. Please start adding product again.", parse_mode=None)
+        await send_message_with_retry(context.bot, chat_id, "❌ Klaida: Kontekstas prarastas. Pradėkite iš naujo.", parse_mode=None)
         keys_to_clear = ["state", "pending_drop", "pending_drop_size", "pending_drop_price", "collecting_media_group_id", "collected_media"]
         for key in keys_to_clear: user_specific_data.pop(key, None)
         return
@@ -455,7 +455,7 @@ async def handle_admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     if not primary_admin and not secondary_admin:
         logger.warning(f"Non-admin user {user_id} attempted to access admin menu via {'command' if not query else 'callback'}.")
-        msg = "Access denied."
+        msg = "Prieiga uždrausta."
         if query: await query.answer(msg, show_alert=True)
         else: await send_message_with_retry(context.bot, chat_id, msg, parse_mode=None)
         return
@@ -486,7 +486,7 @@ async def handle_admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         res_sales = c.fetchone(); total_sales_value = Decimal(str(res_sales['total_sales'])) if res_sales else Decimal('0.0')
     except sqlite3.Error as e:
         logger.error(f"DB error fetching admin dashboard data: {e}", exc_info=True)
-        error_message = "❌ Error loading admin data."
+        error_message = "❌ Klaida įkeliant admin duomenis."
         if query:
             try: await query.edit_message_text(error_message, parse_mode=None)
             except Exception: pass
@@ -498,39 +498,39 @@ async def handle_admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, 
     total_user_balance_str = format_currency(total_user_balance)
     total_sales_value_str = format_currency(total_sales_value)
     msg = (
-       f"🔧 Admin Dashboard (Primary)\n\n"
-       f"👥 Total Users: {total_users}\n"
-       f"💰 Sum of User Balances: {total_user_balance_str} EUR\n"
-       f"📈 Total Sales Value: {total_sales_value_str} EUR\n"
-       f"📦 Active Products: {active_products}\n\n"
-       "Select an action:"
+       f"🔧 Administratoriaus Valdymas\n\n"
+       f"👥 Viso vartotojų: {total_users}\n"
+       f"💰 Vartotojų balansų suma: {total_user_balance_str} EUR\n"
+       f"📈 Bendra pardavimų vertė: {total_sales_value_str} EUR\n"
+       f"📦 Aktyvūs produktai: {active_products}\n\n"
+       "Pasirinkite veiksmą:"
     )
 
     keyboard = [
-        [InlineKeyboardButton("📊 Sales Analytics", callback_data="sales_analytics_menu")],
-        [InlineKeyboardButton("🔍 Recent Purchases", callback_data="adm_recent_purchases|0")],
-        [InlineKeyboardButton("➕ Add Products", callback_data="adm_city")],
-        [InlineKeyboardButton("📦 Bulk Add Products", callback_data="adm_bulk_city")],
-        [InlineKeyboardButton("🗑️ Manage Products", callback_data="adm_manage_products")],
-        [InlineKeyboardButton("🔍 Search User", callback_data="adm_search_user_start")],
-        [InlineKeyboardButton("👑 Manage Resellers", callback_data="manage_resellers_menu")],
-        [InlineKeyboardButton("🏷️ Manage Reseller Discounts", callback_data="manage_reseller_discounts_select_reseller|0")],
-        [InlineKeyboardButton("🏷️ Manage Discount Codes", callback_data="adm_manage_discounts")],
-        [InlineKeyboardButton("👋 Manage Welcome Msg", callback_data="adm_manage_welcome|0")],
-        [InlineKeyboardButton("📦 View Bot Stock", callback_data="view_stock")],
-        [InlineKeyboardButton("📜 View Added Products Log", callback_data="viewer_added_products|0")],
-        [InlineKeyboardButton("🗺️ Manage Districts", callback_data="adm_manage_districts")],
-        [InlineKeyboardButton("🏙️ Manage Cities", callback_data="adm_manage_cities")],
-        [InlineKeyboardButton("🧩 Manage Product Types", callback_data="adm_manage_types")],
-        [InlineKeyboardButton("🔄 Reassign Product Type", callback_data="adm_reassign_type_start")], # <<< MODIFIED: Already existed
-        [InlineKeyboardButton("🚫 Manage Reviews", callback_data="adm_manage_reviews|0")],
-        [InlineKeyboardButton("🧹 Clear ALL Reservations", callback_data="adm_clear_reservations_confirm")],
-        [InlineKeyboardButton("📢 Broadcast Message", callback_data="adm_broadcast_start")],
-        [InlineKeyboardButton("🔧 Manual Payment Recovery", callback_data="manual_payment_recovery")],
-        [InlineKeyboardButton("💰 Bulk Edit Prices", callback_data="adm_bulk_edit_prices_start")],
-        [InlineKeyboardButton("➕ Add New City", callback_data="adm_add_city")],
-        [InlineKeyboardButton("📸 Set Bot Media", callback_data="adm_set_media")],
-        [InlineKeyboardButton("🏠 User Home Menu", callback_data="back_start")]
+        [InlineKeyboardButton("📊 Pardavimų analizė", callback_data="sales_analytics_menu")],
+        [InlineKeyboardButton("🔍 Paskutiniai pirkimai", callback_data="adm_recent_purchases|0")],
+        [InlineKeyboardButton("➕ Pridėti produktus", callback_data="adm_city")],
+        [InlineKeyboardButton("📦 Masinis produktų pridėjimas", callback_data="adm_bulk_city")],
+        [InlineKeyboardButton("🗑️ Valdyti produktus", callback_data="adm_manage_products")],
+        [InlineKeyboardButton("🔍 Ieškoti vartotojo", callback_data="adm_search_user_start")],
+        [InlineKeyboardButton("👑 Valdyti perpardavėjus", callback_data="manage_resellers_menu")],
+        [InlineKeyboardButton("🏷️ Perpardavėjų nuolaidos", callback_data="manage_reseller_discounts_select_reseller|0")],
+        [InlineKeyboardButton("🏷️ Valdyti nuolaidų kodus", callback_data="adm_manage_discounts")],
+        [InlineKeyboardButton("👋 Valdyti pasveikinimą", callback_data="adm_manage_welcome|0")],
+        [InlineKeyboardButton("📦 Peržiūrėti atsargas", callback_data="view_stock")],
+        [InlineKeyboardButton("📜 Pridėtų produktų žurnalas", callback_data="viewer_added_products|0")],
+        [InlineKeyboardButton("🗺️ Valdyti rajonus", callback_data="adm_manage_districts")],
+        [InlineKeyboardButton("🏙️ Valdyti miestus", callback_data="adm_manage_cities")],
+        [InlineKeyboardButton("🧩 Valdyti produktų tipus", callback_data="adm_manage_types")],
+        [InlineKeyboardButton("🔄 Priskirti produkto tipą", callback_data="adm_reassign_type_start")],
+        [InlineKeyboardButton("🚫 Valdyti atsiliepimus", callback_data="adm_manage_reviews|0")],
+        [InlineKeyboardButton("🧹 Išvalyti VISAS rezervacijas", callback_data="adm_clear_reservations_confirm")],
+        [InlineKeyboardButton("📢 Transliuoti žinutę", callback_data="adm_broadcast_start")],
+        [InlineKeyboardButton("🔧 Rankinis mokėjimo atkūrimas", callback_data="manual_payment_recovery")],
+        [InlineKeyboardButton("💰 Masinis kainų redagavimas", callback_data="adm_bulk_edit_prices_start")],
+        [InlineKeyboardButton("➕ Pridėti naują miestą", callback_data="adm_add_city")],
+        [InlineKeyboardButton("📸 Nustatyti boto mediją", callback_data="adm_set_media")],
+        [InlineKeyboardButton("🏠 Pagrindinis meniu", callback_data="back_start")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -554,28 +554,28 @@ async def handle_admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 async def handle_sales_analytics_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Displays the sales analytics submenu."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
-    msg = "📊 Sales Analytics\n\nSelect a report or view:"
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
+    msg = "📊 Pardavimų analizė\n\nPasirinkite ataskaitą:"
     keyboard = [
-        [InlineKeyboardButton("📈 View Dashboard", callback_data="sales_dashboard")],
-        [InlineKeyboardButton("📅 Generate Report", callback_data="sales_select_period|main")],
-        [InlineKeyboardButton("🏙️ Sales by City", callback_data="sales_select_period|by_city")],
-        [InlineKeyboardButton("💎 Sales by Type", callback_data="sales_select_period|by_type")],
-        [InlineKeyboardButton("🏆 Top Products", callback_data="sales_select_period|top_prod")],
-        [InlineKeyboardButton("⬅️ Back", callback_data="admin_menu")]
+        [InlineKeyboardButton("📈 Peržiūrėti suvestinę", callback_data="sales_dashboard")],
+        [InlineKeyboardButton("📅 Generuoti ataskaitą", callback_data="sales_select_period|main")],
+        [InlineKeyboardButton("🏙️ Pardavimai pagal miestą", callback_data="sales_select_period|by_city")],
+        [InlineKeyboardButton("💎 Pardavimai pagal tipą", callback_data="sales_select_period|by_type")],
+        [InlineKeyboardButton("🏆 Populiariausi produktai", callback_data="sales_select_period|top_prod")],
+        [InlineKeyboardButton("⬅️ Atgal", callback_data="admin_menu")]
     ]
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 async def handle_sales_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Displays a quick sales dashboard for today, this week, this month."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     periods = {
-        "today": ("☀️ Today ({})", datetime.now(timezone.utc).strftime("%Y-%m-%d")), # Use UTC
-        "week": ("🗓️ This Week (Mon-Sun)", None),
-        "month": ("📆 This Month", None)
+        "today": ("☀️ Šiandien ({})", datetime.now(timezone.utc).strftime("%Y-%m-%d")), # Use UTC
+        "week": ("🗓️ Ši savaitė (Pr-Sk)", None),
+        "month": ("📆 Šis mėnuo", None)
     }
-    msg = "📊 Sales Dashboard\n\n"
+    msg = "📊 Pardavimų suvestinė\n\n"
     conn = None # Initialize conn
     try:
         conn = get_db_connection() # Use helper
@@ -595,9 +595,9 @@ async def handle_sales_dashboard(update: Update, context: ContextTypes.DEFAULT_T
             aov_str = format_currency(aov)
             label_formatted = label_template.format(date_str) if date_str else label_template
             msg += f"{label_formatted}\n"
-            msg += f"    Revenue: {revenue_str} EUR\n"
-            msg += f"    Units Sold: {units}\n"
-            msg += f"    Avg Order Value: {aov_str} EUR\n\n"
+            msg += f"    Pajamos: {revenue_str} EUR\n"
+            msg += f"    Parduota vienetų: {units}\n"
+            msg += f"    Vid. užsakymo vertė: {aov_str} EUR\n\n"
     except sqlite3.Error as e:
         logger.error(f"DB error generating sales dashboard: {e}", exc_info=True)
         msg += "\n❌ Error fetching dashboard data."
@@ -606,7 +606,7 @@ async def handle_sales_dashboard(update: Update, context: ContextTypes.DEFAULT_T
         msg += "\n❌ An unexpected error occurred."
     finally:
          if conn: conn.close() # Close connection if opened
-    keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data="sales_analytics_menu")]]
+    keyboard = [[InlineKeyboardButton("⬅️ Atgal", callback_data="sales_analytics_menu")]]
     try:
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     except telegram_error.BadRequest as e:
@@ -616,28 +616,28 @@ async def handle_sales_dashboard(update: Update, context: ContextTypes.DEFAULT_T
 async def handle_sales_select_period(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Shows options for selecting a reporting period."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     if not params:
         logger.warning("handle_sales_select_period called without report_type.")
         return await query.answer("Error: Report type missing.", show_alert=True)
     report_type = params[0]
     context.user_data['sales_report_type'] = report_type
     keyboard = [
-        [InlineKeyboardButton("Today", callback_data=f"sales_run|{report_type}|today"),
-         InlineKeyboardButton("Yesterday", callback_data=f"sales_run|{report_type}|yesterday")],
-        [InlineKeyboardButton("This Week", callback_data=f"sales_run|{report_type}|week"),
-         InlineKeyboardButton("Last Week", callback_data=f"sales_run|{report_type}|last_week")],
-        [InlineKeyboardButton("This Month", callback_data=f"sales_run|{report_type}|month"),
-         InlineKeyboardButton("Last Month", callback_data=f"sales_run|{report_type}|last_month")],
-        [InlineKeyboardButton("Year To Date", callback_data=f"sales_run|{report_type}|year")],
-        [InlineKeyboardButton("⬅️ Back", callback_data="sales_analytics_menu")]
+        [InlineKeyboardButton("Šiandien", callback_data=f"sales_run|{report_type}|today"),
+         InlineKeyboardButton("Vakar", callback_data=f"sales_run|{report_type}|yesterday")],
+        [InlineKeyboardButton("Ši savaitė", callback_data=f"sales_run|{report_type}|week"),
+         InlineKeyboardButton("Praėjusi savaitė", callback_data=f"sales_run|{report_type}|last_week")],
+        [InlineKeyboardButton("Šis mėnuo", callback_data=f"sales_run|{report_type}|month"),
+         InlineKeyboardButton("Praėjęs mėnuo", callback_data=f"sales_run|{report_type}|last_month")],
+        [InlineKeyboardButton("Nuo metų pradžios", callback_data=f"sales_run|{report_type}|year")],
+        [InlineKeyboardButton("⬅️ Atgal", callback_data="sales_analytics_menu")]
     ]
-    await query.edit_message_text("📅 Select Reporting Period", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
+    await query.edit_message_text("📅 Pasirinkite laikotarpį", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 async def handle_sales_run(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Generates and displays the selected sales report."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     if not params or len(params) < 2:
         logger.warning("handle_sales_run called with insufficient parameters.")
         return await query.answer("Error: Report type or period missing.", show_alert=True)
@@ -662,26 +662,26 @@ async def handle_sales_run(update: Update, context: ContextTypes.DEFAULT_TYPE, p
             aov = revenue / units if units > 0 else 0.0
             revenue_str = format_currency(revenue)
             aov_str = format_currency(aov)
-            msg = (f"📊 Sales Report: {period_title}\n\nRevenue: {revenue_str} EUR\n"
-                   f"Units Sold: {units}\nAvg Order Value: {aov_str} EUR")
+            msg = (f"📊 Pardavimų ataskaita: {period_title}\n\nPajamos: {revenue_str} EUR\n"
+                   f"Parduota: {units}\nVid. užsakymo vertė: {aov_str} EUR")
         elif report_type == "by_city":
             c.execute(f"SELECT city, COALESCE(SUM(price_paid), 0.0) as city_revenue, COUNT(*) as city_units {base_query} GROUP BY city ORDER BY city_revenue DESC", base_params)
             results = c.fetchall()
-            msg = f"🏙️ Sales by City: {period_title}\n\n"
+            msg = f"🏙️ Pardavimai pagal miestą: {period_title}\n\n"
             if results:
                 for row in results:
-                    msg += f"{row['city'] or 'N/A'}: {format_currency(row['city_revenue'])} EUR ({row['city_units'] or 0} units)\n"
-            else: msg += "No sales data for this period."
+                    msg += f"{row['city'] or 'N/A'}: {format_currency(row['city_revenue'])} EUR ({row['city_units'] or 0} vnt.)\n"
+            else: msg += "Nėra pardavimų duomenų šiam laikotarpiui."
         elif report_type == "by_type":
             c.execute(f"SELECT product_type, COALESCE(SUM(price_paid), 0.0) as type_revenue, COUNT(*) as type_units {base_query} GROUP by product_type ORDER BY type_revenue DESC", base_params)
             results = c.fetchall()
-            msg = f"📊 Sales by Type: {period_title}\n\n"
+            msg = f"📊 Pardavimai pagal tipą: {period_title}\n\n"
             if results:
                 for row in results:
                     type_name = row['product_type'] or 'N/A'
                     emoji = PRODUCT_TYPES.get(type_name, DEFAULT_PRODUCT_EMOJI)
-                    msg += f"{emoji} {type_name}: {format_currency(row['type_revenue'])} EUR ({row['type_units'] or 0} units)\n"
-            else: msg += "No sales data for this period."
+                    msg += f"{emoji} {type_name}: {format_currency(row['type_revenue'])} EUR ({row['type_units'] or 0} vnt.)\n"
+            else: msg += "Nėra pardavimų duomenų šiam laikotarpiui."
         elif report_type == "top_prod":
             c.execute(f"""
                 SELECT pu.product_name, pu.product_size, pu.product_type,
@@ -693,13 +693,13 @@ async def handle_sales_run(update: Update, context: ContextTypes.DEFAULT_TYPE, p
                 ORDER BY prod_revenue DESC LIMIT 10
             """, base_params) # Simplified query relying on purchase record details
             results = c.fetchall()
-            msg = f"🏆 Top Products: {period_title}\n\n"
+            msg = f"🏆 Populiariausi produktai: {period_title}\n\n"
             if results:
                 for i, row in enumerate(results):
                     type_name = row['product_type'] or 'N/A'
                     emoji = PRODUCT_TYPES.get(type_name, DEFAULT_PRODUCT_EMOJI)
-                    msg += f"{i+1}. {emoji} {row['product_name'] or 'N/A'} ({row['product_size'] or 'N/A'}): {format_currency(row['prod_revenue'])} EUR ({row['prod_units'] or 0} units)\n"
-            else: msg += "No sales data for this period."
+                    msg += f"{i+1}. {emoji} {row['product_name'] or 'N/A'} ({row['product_size'] or 'N/A'}): {format_currency(row['prod_revenue'])} EUR ({row['prod_units'] or 0} vnt.)\n"
+            else: msg += "Nėra pardavimų duomenų šiam laikotarpiui."
         else: msg = "❌ Unknown report type requested."
     except sqlite3.Error as e:
         logger.error(f"DB error generating sales report '{report_type}' for '{period_key}': {e}", exc_info=True)
@@ -709,8 +709,8 @@ async def handle_sales_run(update: Update, context: ContextTypes.DEFAULT_TYPE, p
         msg = "❌ An unexpected error occurred."
     finally:
          if conn: conn.close()
-    keyboard = [[InlineKeyboardButton("⬅️ Back to Period", callback_data=f"sales_select_period|{report_type}"),
-                 InlineKeyboardButton("📊 Analytics Menu", callback_data="sales_analytics_menu")]]
+    keyboard = [[InlineKeyboardButton("⬅️ Atgal į laikotarpį", callback_data=f"sales_select_period|{report_type}"),
+                 InlineKeyboardButton("📊 Analizės meniu", callback_data="sales_analytics_menu")]]
     try:
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     except telegram_error.BadRequest as e:
@@ -721,31 +721,31 @@ async def handle_sales_run(update: Update, context: ContextTypes.DEFAULT_TYPE, p
 async def handle_adm_city(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Admin selects city to add product to."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     lang, lang_data = _get_lang_data(context) # Use helper
     if not CITIES:
-        return await query.edit_message_text("No cities configured. Please add a city first via 'Manage Cities'.", parse_mode=None)
+        return await query.edit_message_text("Nėra sukonfigūruotų miestų. Pirmiausia pridėkite miestą per 'Valdyti miestus'.", parse_mode=None)
     sorted_city_ids = sorted(CITIES.keys(), key=lambda city_id: CITIES.get(city_id, ''))
     keyboard = [[InlineKeyboardButton(f"🏙️ {CITIES.get(c,'N/A')}", callback_data=f"adm_dist|{c}")] for c in sorted_city_ids]
-    keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="admin_menu")])
+    keyboard.append([InlineKeyboardButton("⬅️ Atgal", callback_data="admin_menu")])
     select_city_text = lang_data.get("admin_select_city", "Select City to Add Product:")
     await query.edit_message_text(select_city_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 async def handle_adm_dist(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Admin selects district within the chosen city."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
-    if not params: return await query.answer("Error: City ID missing.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
+    if not params: return await query.answer("Klaida: Trūksta miesto ID.", show_alert=True)
     city_id = params[0]
     city_name = CITIES.get(city_id)
     if not city_name:
-        return await query.edit_message_text("Error: City not found. Please select again.", parse_mode=None)
+        return await query.edit_message_text("Klaida: Miestas nerastas. Pasirinkite dar kartą.", parse_mode=None)
     districts_in_city = DISTRICTS.get(city_id, {})
     lang, lang_data = _get_lang_data(context) # Use helper
     select_district_template = lang_data.get("admin_select_district", "Select District in {city}:")
     if not districts_in_city:
-        keyboard = [[InlineKeyboardButton("⬅️ Back to Cities", callback_data="adm_city")]]
-        return await query.edit_message_text(f"No districts found for {city_name}. Please add districts via 'Manage Districts'.",
+        keyboard = [[InlineKeyboardButton("⬅️ Atgal į miestus", callback_data="adm_city")]]
+        return await query.edit_message_text(f"Rajonų nerasta mieste {city_name}. Pridėkite rajonus per 'Valdyti rajonus'.",
                                 reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     sorted_district_ids = sorted(districts_in_city.keys(), key=lambda dist_id: districts_in_city.get(dist_id,''))
     keyboard = []
@@ -754,20 +754,20 @@ async def handle_adm_dist(update: Update, context: ContextTypes.DEFAULT_TYPE, pa
         if dist_name:
             keyboard.append([InlineKeyboardButton(f"🏘️ {dist_name}", callback_data=f"adm_type|{city_id}|{d}")])
         else: logger.warning(f"District name missing for ID {d} in city {city_id}")
-    keyboard.append([InlineKeyboardButton("⬅️ Back to Cities", callback_data="adm_city")])
+    keyboard.append([InlineKeyboardButton("⬅️ Atgal į miestus", callback_data="adm_city")])
     select_district_text = select_district_template.format(city=city_name)
     await query.edit_message_text(select_district_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 async def handle_adm_type(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Admin selects product type."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
-    if not params or len(params) < 2: return await query.answer("Error: City or District ID missing.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
+    if not params or len(params) < 2: return await query.answer("Klaida: Trūksta miesto arba rajono ID.", show_alert=True)
     city_id, dist_id = params[0], params[1]
     city_name = CITIES.get(city_id)
     district_name = DISTRICTS.get(city_id, {}).get(dist_id)
     if not city_name or not district_name:
-        return await query.edit_message_text("Error: City/District not found. Please select again.", parse_mode=None)
+        return await query.edit_message_text("Klaida: Miestas/Rajonas nerastas. Pasirinkite dar kartą.", parse_mode=None)
     lang, lang_data = _get_lang_data(context) # Use helper
     select_type_text = lang_data.get("admin_select_type", "Select Product Type:")
     if not PRODUCT_TYPES:
@@ -784,13 +784,13 @@ async def handle_adm_type(update: Update, context: ContextTypes.DEFAULT_TYPE, pa
 async def handle_adm_add(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Admin selects size for the new product."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
-    if not params or len(params) < 3: return await query.answer("Error: Location/Type info missing.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
+    if not params or len(params) < 3: return await query.answer("Klaida: Trūksta vietos/tipo informacijos.", show_alert=True)
     city_id, dist_id, p_type = params
     city_name = CITIES.get(city_id)
     district_name = DISTRICTS.get(city_id, {}).get(dist_id)
     if not city_name or not district_name:
-        return await query.edit_message_text("Error: City/District not found. Please select again.", parse_mode=None)
+        return await query.edit_message_text("Klaida: Miestas/Rajonas nerastas. Pasirinkite dar kartą.", parse_mode=None)
     type_emoji = PRODUCT_TYPES.get(p_type, DEFAULT_PRODUCT_EMOJI)
     context.user_data["admin_city_id"] = city_id
     context.user_data["admin_district_id"] = dist_id
@@ -798,42 +798,42 @@ async def handle_adm_add(update: Update, context: ContextTypes.DEFAULT_TYPE, par
     context.user_data["admin_city"] = city_name
     context.user_data["admin_district"] = district_name
     keyboard = [[InlineKeyboardButton(f"📏 {s}", callback_data=f"adm_size|{s}")] for s in SIZES]
-    keyboard.append([InlineKeyboardButton("📏 Custom Size", callback_data="adm_custom_size")])
+    keyboard.append([InlineKeyboardButton("📏 Kitas dydis", callback_data="adm_custom_size")])
     keyboard.append([InlineKeyboardButton("⬅️ Back to Types", callback_data=f"adm_type|{city_id}|{dist_id}")])
-    await query.edit_message_text(f"📦 Adding {type_emoji} {p_type} in {city_name} / {district_name}\n\nSelect size:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
+    await query.edit_message_text(f"📦 Adding {type_emoji} {p_type} in {city_name} / {district_name}\n\nPasirinkite dydį:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 async def handle_adm_size(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles selection of a predefined size."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
-    if not params: return await query.answer("Error: Size missing.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
+    if not params: return await query.answer("Klaida: Trūksta dydžio.", show_alert=True)
     size = params[0]
     if not all(k in context.user_data for k in ["admin_city", "admin_district", "admin_product_type"]):
-        return await query.edit_message_text("❌ Error: Context lost. Please start adding the product again.", parse_mode=None)
+        return await query.edit_message_text("❌ Klaida: Kontekstas prarastas. Pradėkite iš naujo.", parse_mode=None)
     context.user_data["pending_drop_size"] = size
     context.user_data["state"] = "awaiting_price"
     keyboard = [[InlineKeyboardButton("❌ Cancel Add", callback_data="cancel_add")]]
-    await query.edit_message_text(f"Size set to {size}. Please reply with the price (e.g., 12.50 or 12.5):",
+    await query.edit_message_text(f"Dydis nustatytas {size}. Atsakykite su kaina (pvz., 12.50 arba 12.5):",
                             reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
-    await query.answer("Enter price in chat.")
+    await query.answer("Įveskite kainą pokalbyje.")
 
 async def handle_adm_custom_size(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles 'Custom Size' button press."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     if not all(k in context.user_data for k in ["admin_city", "admin_district", "admin_product_type"]):
-        return await query.edit_message_text("❌ Error: Context lost. Please start adding the product again.", parse_mode=None)
+        return await query.edit_message_text("❌ Klaida: Kontekstas prarastas. Pradėkite iš naujo.", parse_mode=None)
     context.user_data["state"] = "awaiting_custom_size"
     keyboard = [[InlineKeyboardButton("❌ Cancel Add", callback_data="cancel_add")]]
-    await query.edit_message_text("Please reply with the custom size (e.g., 10g, 1/4 oz):",
+    await query.edit_message_text("Atsakykite su dydžiu (pvz., 10g, 1/4 oz):",
                             reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
-    await query.answer("Enter custom size in chat.")
+    await query.answer("Įveskite dydį pokalbyje.")
 
 async def handle_confirm_add_drop(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles confirmation (Yes/No) for adding the drop."""
     query = update.callback_query
     user_id = query.from_user.id
-    if not is_primary_admin(user_id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(user_id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     chat_id = query.message.chat_id
     user_specific_data = context.user_data # Use context.user_data for the admin's data
     pending_drop = user_specific_data.get("pending_drop")
@@ -841,7 +841,7 @@ async def handle_confirm_add_drop(update: Update, context: ContextTypes.DEFAULT_
     if not pending_drop:
         logger.error(f"Confirmation 'yes' received for add drop, but no pending_drop data found for user {user_id}.")
         user_specific_data.pop("state", None)
-        return await query.edit_message_text("❌ Error: No pending drop data found. Please start again.", parse_mode=None)
+        return await query.edit_message_text("❌ Klaida: Nerasta laukiamų duomenų. Pradėkite iš naujo.", parse_mode=None)
 
     city = pending_drop.get("city"); district = pending_drop.get("district"); p_type = pending_drop.get("product_type")
     size = pending_drop.get("size"); price = pending_drop.get("price"); original_text = pending_drop.get("original_text", "")
@@ -852,7 +852,7 @@ async def handle_confirm_add_drop(update: Update, context: ContextTypes.DEFAULT_
         if temp_dir and await asyncio.to_thread(os.path.exists, temp_dir): await asyncio.to_thread(shutil.rmtree, temp_dir, ignore_errors=True)
         keys_to_clear = ["state", "pending_drop", "pending_drop_size", "pending_drop_price", "admin_city_id", "admin_district_id", "admin_product_type", "admin_city", "admin_district"]
         for key in keys_to_clear: user_specific_data.pop(key, None)
-        return await query.edit_message_text("❌ Error: Incomplete drop data. Please start again.", parse_mode=None)
+        return await query.edit_message_text("❌ Klaida: Nepilni duomenys. Pradėkite iš naujo.", parse_mode=None)
 
     product_name = f"{p_type} {size} {int(time.time())}"; conn = None; product_id = None
     try:
@@ -905,17 +905,17 @@ async def handle_confirm_add_drop(update: Update, context: ContextTypes.DEFAULT_
 
         conn.commit(); logger.info(f"Added product {product_id} ({product_name}).")
         if temp_dir and await asyncio.to_thread(os.path.exists, temp_dir): await asyncio.to_thread(shutil.rmtree, temp_dir, ignore_errors=True); logger.info(f"Cleaned temp dir: {temp_dir}")
-        await query.edit_message_text("✅ Drop Added Successfully!", parse_mode=None)
+        await query.edit_message_text("✅ Produktas sėkmingai pridėtas!", parse_mode=None)
         ctx_city_id = user_specific_data.get('admin_city_id'); ctx_dist_id = user_specific_data.get('admin_district_id'); ctx_p_type = user_specific_data.get('admin_product_type')
         add_another_callback = f"adm_add|{ctx_city_id}|{ctx_dist_id}|{ctx_p_type}" if all([ctx_city_id, ctx_dist_id, ctx_p_type]) else "admin_menu"
         keyboard = [ [InlineKeyboardButton("➕ Add Another Same Type", callback_data=add_another_callback)],
-                     [InlineKeyboardButton("🔧 Admin Menu", callback_data="admin_menu"), InlineKeyboardButton("🏠 User Home", callback_data="back_start")] ]
+                     [InlineKeyboardButton("🔧 Admin meniu", callback_data="admin_menu"), InlineKeyboardButton("🏠 Pagrindinis", callback_data="back_start")] ]
         await send_message_with_retry(context.bot, chat_id, "What next?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     except (sqlite3.Error, OSError, Exception) as e:
         try: conn.rollback() if conn and conn.in_transaction else None
         except Exception as rb_err: logger.error(f"Rollback failed: {rb_err}")
         logger.error(f"Error saving confirmed drop for user {user_id}: {e}", exc_info=True)
-        await query.edit_message_text("❌ Error: Failed to save the drop. Please check logs and try again.", parse_mode=None)
+        await query.edit_message_text("❌ Klaida: Nepavyko išsaugoti produkto. Patikrinkite žurnalus ir bandykite dar kartą.", parse_mode=None)
         if temp_dir and await asyncio.to_thread(os.path.exists, temp_dir): await asyncio.to_thread(shutil.rmtree, temp_dir, ignore_errors=True); logger.info(f"Cleaned temp dir after error: {temp_dir}")
     finally:
         if conn: conn.close()
@@ -947,7 +947,7 @@ async def cancel_add(update: Update, context: ContextTypes.DEFAULT_TYPE, params=
                  pass # It's okay if the message wasn't modified
              else:
                  logger.error(f"Error editing cancel message: {e}")
-         keyboard = [[InlineKeyboardButton("🔧 Admin Menu", callback_data="admin_menu"), InlineKeyboardButton("🏠 User Home", callback_data="back_start")]]; await send_message_with_retry(context.bot, query.message.chat_id, "Returning to Admin Menu.", reply_markup=InlineKeyboardMarkup(keyboard))
+         keyboard = [[InlineKeyboardButton("🔧 Admin meniu", callback_data="admin_menu"), InlineKeyboardButton("🏠 Pagrindinis", callback_data="back_start")]]; await send_message_with_retry(context.bot, query.message.chat_id, "Grįžtama į Admin meniu.", reply_markup=InlineKeyboardMarkup(keyboard))
     elif update.message: await send_message_with_retry(context.bot, update.message.chat_id, "Add product cancelled.")
     else: logger.info("Add product flow cancelled internally (no query/message object).")
 
@@ -956,31 +956,31 @@ async def cancel_add(update: Update, context: ContextTypes.DEFAULT_TYPE, params=
 async def handle_adm_bulk_city(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Admin selects city to add bulk products to."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     lang, lang_data = _get_lang_data(context) # Use helper
     if not CITIES:
-        return await query.edit_message_text("No cities configured. Please add a city first via 'Manage Cities'.", parse_mode=None)
+        return await query.edit_message_text("Nėra sukonfigūruotų miestų. Pirmiausia pridėkite miestą per 'Valdyti miestus'.", parse_mode=None)
     sorted_city_ids = sorted(CITIES.keys(), key=lambda city_id: CITIES.get(city_id, ''))
     keyboard = [[InlineKeyboardButton(f"🏙️ {CITIES.get(c,'N/A')}", callback_data=f"adm_bulk_dist|{c}")] for c in sorted_city_ids]
-    keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="admin_menu")])
+    keyboard.append([InlineKeyboardButton("⬅️ Atgal", callback_data="admin_menu")])
     select_city_text = lang_data.get("admin_select_city", "Select City to Add Bulk Products:")
-    await query.edit_message_text(f"📦 Bulk Add Products\n\n{select_city_text}", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
+    await query.edit_message_text(f"📦 Masinis produktų pridėjimas\n\n{select_city_text}", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 async def handle_adm_bulk_dist(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Admin selects district for bulk products."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
-    if not params: return await query.answer("Error: City ID missing.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
+    if not params: return await query.answer("Klaida: Trūksta miesto ID.", show_alert=True)
     city_id = params[0]
     city_name = CITIES.get(city_id)
     if not city_name:
-        return await query.edit_message_text("Error: City not found. Please select again.", parse_mode=None)
+        return await query.edit_message_text("Klaida: Miestas nerastas. Pasirinkite dar kartą.", parse_mode=None)
     districts_in_city = DISTRICTS.get(city_id, {})
     lang, lang_data = _get_lang_data(context) # Use helper
     select_district_template = lang_data.get("admin_select_district", "Select District in {city}:")
     if not districts_in_city:
-        keyboard = [[InlineKeyboardButton("⬅️ Back to Cities", callback_data="adm_bulk_city")]]
-        return await query.edit_message_text(f"No districts found for {city_name}. Please add districts via 'Manage Districts'.",
+        keyboard = [[InlineKeyboardButton("⬅️ Atgal į miestus", callback_data="adm_bulk_city")]]
+        return await query.edit_message_text(f"Rajonų nerasta mieste {city_name}. Pridėkite rajonus per 'Valdyti rajonus'.",
                                 reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     sorted_district_ids = sorted(districts_in_city.keys(), key=lambda d_id: districts_in_city.get(d_id,''))
     keyboard = []
@@ -989,20 +989,20 @@ async def handle_adm_bulk_dist(update: Update, context: ContextTypes.DEFAULT_TYP
         if dist_name:
             keyboard.append([InlineKeyboardButton(f"🏘️ {dist_name}", callback_data=f"adm_bulk_type|{city_id}|{d}")])
         else: logger.warning(f"District name missing for ID {d} in city {city_id}")
-    keyboard.append([InlineKeyboardButton("⬅️ Back to Cities", callback_data="adm_bulk_city")])
+    keyboard.append([InlineKeyboardButton("⬅️ Atgal į miestus", callback_data="adm_bulk_city")])
     select_district_text = select_district_template.format(city=city_name)
     await query.edit_message_text(select_district_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 async def handle_adm_bulk_type(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Admin selects product type for bulk products."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
-    if not params or len(params) < 2: return await query.answer("Error: City or District ID missing.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
+    if not params or len(params) < 2: return await query.answer("Klaida: Trūksta miesto arba rajono ID.", show_alert=True)
     city_id, dist_id = params[0], params[1]
     city_name = CITIES.get(city_id)
     district_name = DISTRICTS.get(city_id, {}).get(dist_id)
     if not city_name or not district_name:
-        return await query.edit_message_text("Error: City/District not found. Please select again.", parse_mode=None)
+        return await query.edit_message_text("Klaida: Miestas/Rajonas nerastas. Pasirinkite dar kartą.", parse_mode=None)
     lang, lang_data = _get_lang_data(context) # Use helper
     select_type_text = lang_data.get("admin_select_type", "Select Product Type:")
     if not PRODUCT_TYPES:
@@ -1013,18 +1013,18 @@ async def handle_adm_bulk_type(update: Update, context: ContextTypes.DEFAULT_TYP
         keyboard.append([InlineKeyboardButton(f"{emoji} {type_name}", callback_data=f"adm_bulk_add|{city_id}|{dist_id}|{type_name}")])
 
     keyboard.append([InlineKeyboardButton("⬅️ Back to Districts", callback_data=f"adm_bulk_dist|{city_id}")])
-    await query.edit_message_text(f"📦 Bulk Add Products - {city_name} / {district_name}\n\n{select_type_text}", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
+    await query.edit_message_text(f"📦 Masinis produktų pridėjimas - {city_name} / {district_name}\n\n{select_type_text}", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 async def handle_adm_bulk_add(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Admin selects size for the bulk products."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
-    if not params or len(params) < 3: return await query.answer("Error: Location/Type info missing.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
+    if not params or len(params) < 3: return await query.answer("Klaida: Trūksta vietos/tipo informacijos.", show_alert=True)
     city_id, dist_id, p_type = params
     city_name = CITIES.get(city_id)
     district_name = DISTRICTS.get(city_id, {}).get(dist_id)
     if not city_name or not district_name:
-        return await query.edit_message_text("Error: City/District not found. Please select again.", parse_mode=None)
+        return await query.edit_message_text("Klaida: Miestas/Rajonas nerastas. Pasirinkite dar kartą.", parse_mode=None)
     type_emoji = PRODUCT_TYPES.get(p_type, DEFAULT_PRODUCT_EMOJI)
     
     # Store initial bulk product details
@@ -1035,36 +1035,36 @@ async def handle_adm_bulk_add(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data["bulk_admin_district"] = district_name
     
     keyboard = [[InlineKeyboardButton(f"📏 {s}", callback_data=f"adm_bulk_size|{s}")] for s in SIZES]
-    keyboard.append([InlineKeyboardButton("📏 Custom Size", callback_data="adm_bulk_custom_size")])
+    keyboard.append([InlineKeyboardButton("📏 Kitas dydis", callback_data="adm_bulk_custom_size")])
     keyboard.append([InlineKeyboardButton("⬅️ Back to Types", callback_data=f"adm_bulk_type|{city_id}|{dist_id}")])
-    await query.edit_message_text(f"📦 Bulk Adding {type_emoji} {p_type} in {city_name} / {district_name}\n\nSelect size:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
+    await query.edit_message_text(f"📦 Masinis pridėjimas {type_emoji} {p_type} in {city_name} / {district_name}\n\nPasirinkite dydį:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 async def handle_adm_bulk_size(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles selection of a predefined size for bulk products."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
-    if not params: return await query.answer("Error: Size missing.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
+    if not params: return await query.answer("Klaida: Trūksta dydžio.", show_alert=True)
     size = params[0]
     if not all(k in context.user_data for k in ["bulk_admin_city", "bulk_admin_district", "bulk_admin_product_type"]):
-        return await query.edit_message_text("❌ Error: Context lost. Please start adding the bulk products again.", parse_mode=None)
+        return await query.edit_message_text("❌ Klaida: Kontekstas prarastas. Pradėkite masinį pridėjimą iš naujo.", parse_mode=None)
     context.user_data["bulk_pending_drop_size"] = size
     context.user_data["state"] = "awaiting_bulk_price"
-    keyboard = [[InlineKeyboardButton("❌ Cancel Bulk Add", callback_data="cancel_bulk_add")]]
-    await query.edit_message_text(f"📦 Bulk Products - Size set to {size}. Please reply with the price (e.g., 12.50 or 12.5):",
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti masinį pridėjimą", callback_data="cancel_bulk_add")]]
+    await query.edit_message_text(f"📦 Masiniai produktai - Dydis nustatytas {size}. Atsakykite su kaina (pvz., 12.50 arba 12.5):",
                             reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
-    await query.answer("Enter price in chat.")
+    await query.answer("Įveskite kainą pokalbyje.")
 
 async def handle_adm_bulk_custom_size(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles 'Custom Size' button press for bulk products."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     if not all(k in context.user_data for k in ["bulk_admin_city", "bulk_admin_district", "bulk_admin_product_type"]):
-        return await query.edit_message_text("❌ Error: Context lost. Please start adding the bulk products again.", parse_mode=None)
+        return await query.edit_message_text("❌ Klaida: Kontekstas prarastas. Pradėkite masinį pridėjimą iš naujo.", parse_mode=None)
     context.user_data["state"] = "awaiting_bulk_custom_size"
-    keyboard = [[InlineKeyboardButton("❌ Cancel Bulk Add", callback_data="cancel_bulk_add")]]
-    await query.edit_message_text("📦 Bulk Products - Please reply with the custom size (e.g., 10g, 1/4 oz):",
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti masinį pridėjimą", callback_data="cancel_bulk_add")]]
+    await query.edit_message_text("📦 Masiniai produktai - Atsakykite su dydžiu (pvz., 10g, 1/4 oz):",
                             reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
-    await query.answer("Enter custom size in chat.")
+    await query.answer("Įveskite dydį pokalbyje.")
 
 async def handle_adm_bulk_custom_size_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles the custom size reply for bulk products."""
@@ -1080,8 +1080,8 @@ async def handle_adm_bulk_custom_size_message(update: Update, context: ContextTy
 
     context.user_data["bulk_pending_drop_size"] = size
     context.user_data["state"] = "awaiting_bulk_price"
-    keyboard = [[InlineKeyboardButton("❌ Cancel Bulk Add", callback_data="cancel_bulk_add")]]
-    await send_message_with_retry(context.bot, chat_id, f"📦 Bulk Products - Size set to: {size}\n\nPlease reply with the price (e.g., 12.50 or 12.5):",
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti masinį pridėjimą", callback_data="cancel_bulk_add")]]
+    await send_message_with_retry(context.bot, chat_id, f"📦 Masiniai produktai - Dydis nustatytas: {size}\n\nAtsakykite su kaina (pvz., 12.50 arba 12.5):",
                             reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 async def handle_adm_bulk_price_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1094,7 +1094,7 @@ async def handle_adm_bulk_price_message(update: Update, context: ContextTypes.DE
 
     price_text = update.message.text.strip()
     try: price = float(price_text)
-    except ValueError: return await send_message_with_retry(context.bot, chat_id, "❌ Invalid price format. Please enter a number (e.g., 12.50).", parse_mode=None)
+    except ValueError: return await send_message_with_retry(context.bot, chat_id, "❌ Neteisingas kainos formatas. Įveskite skaičių (pvz., 12.50).", parse_mode=None)
     if price <= 0: return await send_message_with_retry(context.bot, chat_id, "❌ Price must be greater than 0.", parse_mode=None)
     if price > 999999: return await send_message_with_retry(context.bot, chat_id, "❌ Price too high (max 999999).", parse_mode=None)
 
@@ -1111,7 +1111,7 @@ async def handle_adm_bulk_price_message(update: Update, context: ContextTypes.DE
     district = context.user_data.get("bulk_admin_district", "")
     type_emoji = PRODUCT_TYPES.get(p_type, DEFAULT_PRODUCT_EMOJI)
     
-    msg = (f"📦 Bulk Products Setup Complete\n\n"
+    msg = (f"📦 Masinių produktų nustatymas baigtas\n\n"
            f"📍 Location: {city} / {district}\n"
            f"{type_emoji} Type: {p_type}\n"
            f"📏 Size: {size}\n"
@@ -1121,11 +1121,11 @@ async def handle_adm_bulk_price_message(update: Update, context: ContextTypes.DE
            f"• Text descriptions\n"
            f"• Any combination of media and text\n\n"
            f"Each message will become a separate product drop in this category.\n\n"
-           f"Messages collected: 0/10")
+           f"Surinkta žinučių: 0/10")
     
     keyboard = [
         [InlineKeyboardButton("✅ Finish & Create Products", callback_data="adm_bulk_create_all")],
-        [InlineKeyboardButton("❌ Cancel Bulk Operation", callback_data="cancel_bulk_add")]
+        [InlineKeyboardButton("❌ Atšaukti masinę operaciją", callback_data="cancel_bulk_add")]
     ]
     
     await send_message_with_retry(context.bot, chat_id, msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
@@ -1143,7 +1143,7 @@ async def handle_adm_bulk_drop_details_message(update: Update, context: ContextT
     # Check if we've reached the limit
     if len(bulk_messages) >= 10:
         await send_message_with_retry(context.bot, chat_id, 
-            "❌ You've already collected 10 messages (maximum). Please finish creating the products or cancel the operation.", 
+            "❌ Jau surinkote 10 žinučių (maksimumas). Užbaikite produktų kūrimą arba atšaukite operaciją.", 
             parse_mode=None)
         return
 
@@ -1268,15 +1268,15 @@ async def show_bulk_messages_status(update: Update, context: ContextTypes.DEFAUL
     type_emoji = PRODUCT_TYPES.get(p_type, DEFAULT_PRODUCT_EMOJI)
     price_str = format_currency(price)
     
-    msg = (f"📦 Bulk Products Collection\n\n"
+    msg = (f"📦 Masinių produktų rinkimas\n\n"
            f"📍 Location: {city} / {district}\n"
            f"{type_emoji} Type: {p_type}\n"
            f"📏 Size: {size}\n"
            f"💰 Price: {price_str}€\n\n"
-           f"Messages collected: {len(bulk_messages)}/10\n\n")
+           f"Surinkta žinučių: {len(bulk_messages)}/10\n\n")
     
     if not bulk_messages:
-        msg += "No messages collected yet. Send or forward your first message with product details and media."
+        msg += "Dar nėra surinktų žinučių. Siųskite arba persiųskite pirmą žinutę su produkto duomenimis ir medija."
     else:
         msg += "Collected messages:\n"
         for i, msg_data in enumerate(bulk_messages, 1):
@@ -1296,20 +1296,20 @@ async def show_bulk_messages_status(update: Update, context: ContextTypes.DEFAUL
     keyboard = []
     
     if bulk_messages:
-        keyboard.append([InlineKeyboardButton("🗑️ Remove Last Message", callback_data="adm_bulk_remove_last_message")])
+        keyboard.append([InlineKeyboardButton("🗑️ Pašalinti paskutinę žinutę", callback_data="adm_bulk_remove_last_message")])
         keyboard.append([InlineKeyboardButton("✅ Create All Products", callback_data="adm_bulk_create_all")])
     
     if len(bulk_messages) < 10:
         msg += "\n\nSend or forward your next message..."
     
-    keyboard.append([InlineKeyboardButton("❌ Cancel Bulk Operation", callback_data="cancel_bulk_add")])
+    keyboard.append([InlineKeyboardButton("❌ Atšaukti masinę operaciją", callback_data="cancel_bulk_add")])
     
     await send_message_with_retry(context.bot, chat_id, msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 async def handle_adm_bulk_remove_last_message(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Removes the last collected message from bulk operation."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     bulk_messages = context.user_data.get("bulk_messages", [])
     if not bulk_messages:
@@ -1331,7 +1331,7 @@ async def handle_adm_bulk_remove_last_message(update: Update, context: ContextTy
 async def handle_adm_bulk_back_to_management(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Returns to bulk management interface."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     # This function is no longer needed since we switched to message-based bulk instead of location-based
     # Redirect to the message collection status
@@ -1341,11 +1341,11 @@ async def handle_adm_bulk_back_to_management(update: Update, context: ContextTyp
 async def handle_adm_bulk_confirm_all(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Confirms and creates all products from the collected messages."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     bulk_messages = context.user_data.get("bulk_messages", [])
     if not bulk_messages:
-        return await query.answer("No messages collected! Please add some messages first.", show_alert=True)
+        return await query.answer("Nėra surinktų žinučių! Pirmiausia pridėkite žinučių.", show_alert=True)
     
     # Get all the setup data
     city = context.user_data.get("bulk_admin_city", "")
@@ -1355,7 +1355,7 @@ async def handle_adm_bulk_confirm_all(update: Update, context: ContextTypes.DEFA
     price = context.user_data.get("bulk_pending_drop_price", 0)
     
     if not all([city, district, p_type, size, price]):
-        return await query.edit_message_text("❌ Error: Missing setup data. Please start again.", parse_mode=None)
+        return await query.edit_message_text("❌ Klaida: Trūksta nustatymų duomenų. Pradėkite iš naujo.", parse_mode=None)
     
     # Show confirmation
     type_emoji = PRODUCT_TYPES.get(p_type, DEFAULT_PRODUCT_EMOJI)
@@ -1392,14 +1392,14 @@ async def handle_adm_bulk_confirm_all(update: Update, context: ContextTypes.DEFA
 async def handle_adm_bulk_execute(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Executes the bulk product creation."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     chat_id = query.message.chat_id
     bulk_template = context.user_data.get("bulk_template", {})
     bulk_drops = context.user_data.get("bulk_drops", [])
     
     if not bulk_drops or not bulk_template:
-        return await query.edit_message_text("❌ Error: Missing bulk data. Please start again.", parse_mode=None)
+        return await query.edit_message_text("❌ Klaida: Trūksta masinių duomenų. Pradėkite iš naujo.", parse_mode=None)
     
     await query.edit_message_text("⏳ Creating bulk products...", parse_mode=None)
     
@@ -1536,8 +1536,8 @@ async def handle_adm_bulk_execute(update: Update, context: ContextTypes.DEFAULT_
     
     keyboard = [
         [InlineKeyboardButton("📦 Add More Bulk Products", callback_data="adm_bulk_city")],
-        [InlineKeyboardButton("🔧 Admin Menu", callback_data="admin_menu"), 
-         InlineKeyboardButton("🏠 User Home", callback_data="back_start")]
+        [InlineKeyboardButton("🔧 Admin meniu", callback_data="admin_menu"), 
+         InlineKeyboardButton("🏠 Pagrindinis", callback_data="back_start")]
     ]
     
     await send_message_with_retry(context.bot, chat_id, result_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
@@ -1588,9 +1588,9 @@ async def cancel_bulk_add(update: Update, context: ContextTypes.DEFAULT_TYPE, pa
             else:
                 logger.error(f"Error editing cancel bulk message: {e}")
         
-        keyboard = [[InlineKeyboardButton("🔧 Admin Menu", callback_data="admin_menu"), 
-                     InlineKeyboardButton("🏠 User Home", callback_data="back_start")]]
-        await send_message_with_retry(context.bot, query.message.chat_id, "Returning to Admin Menu.", 
+        keyboard = [[InlineKeyboardButton("🔧 Admin meniu", callback_data="admin_menu"), 
+                     InlineKeyboardButton("🏠 Pagrindinis", callback_data="back_start")]]
+        await send_message_with_retry(context.bot, query.message.chat_id, "Grįžtama į Admin meniu.", 
                                       reply_markup=InlineKeyboardMarkup(keyboard))
     elif update.message:
         await send_message_with_retry(context.bot, update.message.chat_id, "Bulk add products cancelled.")
@@ -1602,11 +1602,11 @@ async def cancel_bulk_add(update: Update, context: ContextTypes.DEFAULT_TYPE, pa
 async def handle_adm_manage_cities(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Shows options to manage existing cities."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     if not CITIES:
          return await query.edit_message_text("No cities configured. Use 'Add New City'.", parse_mode=None,
                                  reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("➕ Add New City", callback_data="adm_add_city")],
-                                                                      [InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")]]))
+                                                                      [InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")]]))
     sorted_city_ids = sorted(CITIES.keys(), key=lambda city_id: CITIES.get(city_id, ''))
     keyboard = []
     for c in sorted_city_ids:
@@ -1616,31 +1616,31 @@ async def handle_adm_manage_cities(update: Update, context: ContextTypes.DEFAULT
              InlineKeyboardButton(f"🗑️ Delete", callback_data=f"adm_delete_city|{c}")
         ])
     keyboard.append([InlineKeyboardButton("➕ Add New City", callback_data="adm_add_city")])
-    keyboard.append([InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")])
+    keyboard.append([InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")])
     await query.edit_message_text("🏙️ Manage Cities\n\nSelect a city or action:",
                             reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 async def handle_adm_add_city(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles 'Add New City' button press."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     context.user_data["state"] = "awaiting_new_city_name"
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="adm_manage_cities")]]
-    await query.edit_message_text("🏙️ Please reply with the name for the new city:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data="adm_manage_cities")]]
+    await query.edit_message_text("🏙️ Atsakykite su naujo miesto pavadinimu:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     await query.answer("Enter city name in chat.")
 
 async def handle_adm_edit_city(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles 'Edit City' button press."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
-    if not params: return await query.answer("Error: City ID missing.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
+    if not params: return await query.answer("Klaida: Trūksta miesto ID.", show_alert=True)
     city_id = params[0]
     city_name = CITIES.get(city_id)
     if not city_name:
-        return await query.edit_message_text("Error: City not found.", parse_mode=None)
+        return await query.edit_message_text("Klaida: Miestas nerastas.", parse_mode=None)
     context.user_data["state"] = "awaiting_edit_city_name"
     context.user_data["edit_city_id"] = city_id
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="adm_manage_cities")]]
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data="adm_manage_cities")]]
     await query.edit_message_text(f"✏️ Editing city: {city_name}\n\nPlease reply with the new name for this city:",
                             reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     await query.answer("Enter new city name in chat.")
@@ -1648,12 +1648,12 @@ async def handle_adm_edit_city(update: Update, context: ContextTypes.DEFAULT_TYP
 async def handle_adm_delete_city(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles 'Delete City' button press, shows confirmation."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
-    if not params: return await query.answer("Error: City ID missing.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
+    if not params: return await query.answer("Klaida: Trūksta miesto ID.", show_alert=True)
     city_id = params[0]
     city_name = CITIES.get(city_id)
     if not city_name:
-        return await query.edit_message_text("Error: City not found.", parse_mode=None)
+        return await query.edit_message_text("Klaida: Miestas nerastas.", parse_mode=None)
     context.user_data["confirm_action"] = f"delete_city|{city_id}"
     msg = (f"⚠️ Confirm Deletion\n\n"
            f"Are you sure you want to delete city: {city_name}?\n\n"
@@ -1665,25 +1665,25 @@ async def handle_adm_delete_city(update: Update, context: ContextTypes.DEFAULT_T
 async def handle_adm_manage_districts(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Shows list of cities to choose from for managing districts."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     if not CITIES:
          return await query.edit_message_text("No cities configured. Add a city first.", parse_mode=None,
-                                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")]]))
+                                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")]]))
     sorted_city_ids = sorted(CITIES.keys(), key=lambda city_id: CITIES.get(city_id,''))
     keyboard = [[InlineKeyboardButton(f"🏙️ {CITIES.get(c, 'N/A')}", callback_data=f"adm_manage_districts_city|{c}")] for c in sorted_city_ids]
-    keyboard.append([InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")])
+    keyboard.append([InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")])
     await query.edit_message_text("🗺️ Manage Districts\n\nSelect the city whose districts you want to manage:",
                             reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 async def handle_adm_manage_districts_city(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Shows districts for the selected city and management options."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
-    if not params: return await query.answer("Error: City ID missing.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
+    if not params: return await query.answer("Klaida: Trūksta miesto ID.", show_alert=True)
     city_id = params[0]
     city_name = CITIES.get(city_id)
     if not city_name:
-        return await query.edit_message_text("Error: City not found.", parse_mode=None)
+        return await query.edit_message_text("Klaida: Miestas nerastas.", parse_mode=None)
     districts_in_city = {}
     conn = None
     try:
@@ -1713,7 +1713,7 @@ async def handle_adm_manage_districts_city(update: Update, context: ContextTypes
             else: logger.warning(f"District name missing for ID {d_id} in city {city_id} (manage view)")
     keyboard.extend([
         [InlineKeyboardButton("➕ Add New District", callback_data=f"adm_add_district|{city_id}")],
-        [InlineKeyboardButton("⬅️ Back to Cities", callback_data="adm_manage_districts")]
+        [InlineKeyboardButton("⬅️ Atgal į miestus", callback_data="adm_manage_districts")]
     ])
     try:
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
@@ -1724,15 +1724,15 @@ async def handle_adm_manage_districts_city(update: Update, context: ContextTypes
 async def handle_adm_add_district(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles 'Add New District' button press."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
-    if not params: return await query.answer("Error: City ID missing.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
+    if not params: return await query.answer("Klaida: Trūksta miesto ID.", show_alert=True)
     city_id = params[0]
     city_name = CITIES.get(city_id)
     if not city_name:
-        return await query.edit_message_text("Error: City not found.", parse_mode=None)
+        return await query.edit_message_text("Klaida: Miestas nerastas.", parse_mode=None)
     context.user_data["state"] = "awaiting_new_district_name"
     context.user_data["admin_add_district_city_id"] = city_id
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data=f"adm_manage_districts_city|{city_id}")]]
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data=f"adm_manage_districts_city|{city_id}")]]
     await query.edit_message_text(f"➕ Adding district to {city_name}\n\nPlease reply with the name for the new district:",
                             reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     await query.answer("Enter district name in chat.")
@@ -1740,7 +1740,7 @@ async def handle_adm_add_district(update: Update, context: ContextTypes.DEFAULT_
 async def handle_adm_edit_district(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles 'Edit District' button press."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     if not params or len(params) < 2: return await query.answer("Error: City/District ID missing.", show_alert=True)
     city_id, dist_id = params
     city_name = CITIES.get(city_id)
@@ -1760,7 +1760,7 @@ async def handle_adm_edit_district(update: Update, context: ContextTypes.DEFAULT
     context.user_data["state"] = "awaiting_edit_district_name"
     context.user_data["edit_city_id"] = city_id
     context.user_data["edit_district_id"] = dist_id
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data=f"adm_manage_districts_city|{city_id}")]]
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data=f"adm_manage_districts_city|{city_id}")]]
     await query.edit_message_text(f"✏️ Editing district: {district_name} in {city_name}\n\nPlease reply with the new name for this district:",
                            reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     await query.answer("Enter new district name in chat.")
@@ -1768,7 +1768,7 @@ async def handle_adm_edit_district(update: Update, context: ContextTypes.DEFAULT
 async def handle_adm_remove_district(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles 'Delete District' button press, shows confirmation."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     if not params or len(params) < 2: return await query.answer("Error: City/District ID missing.", show_alert=True)
     city_id, dist_id = params
     city_name = CITIES.get(city_id)
@@ -1798,13 +1798,13 @@ async def handle_adm_remove_district(update: Update, context: ContextTypes.DEFAU
 async def handle_adm_manage_products(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Admin selects city to manage products in."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     if not CITIES:
          return await query.edit_message_text("No cities configured. Add a city first.", parse_mode=None,
-                                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")]]))
+                                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")]]))
     sorted_city_ids = sorted(CITIES.keys(), key=lambda city_id: CITIES.get(city_id,''))
     keyboard = [[InlineKeyboardButton(f"🏙️ {CITIES.get(c,'N/A')}", callback_data=f"adm_manage_products_city|{c}")] for c in sorted_city_ids]
-    keyboard.append([InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")])
+    keyboard.append([InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")])
     await query.edit_message_text("🗑️ Manage Products\n\nSelect the city where the products are located:",
                             reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
@@ -1812,15 +1812,15 @@ async def handle_adm_manage_products(update: Update, context: ContextTypes.DEFAU
 async def handle_adm_manage_products_city(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Admin selects district to manage products in."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
-    if not params: return await query.answer("Error: City ID missing.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
+    if not params: return await query.answer("Klaida: Trūksta miesto ID.", show_alert=True)
     city_id = params[0]
     city_name = CITIES.get(city_id)
     if not city_name:
-        return await query.edit_message_text("Error: City not found.", parse_mode=None)
+        return await query.edit_message_text("Klaida: Miestas nerastas.", parse_mode=None)
     districts_in_city = DISTRICTS.get(city_id, {})
     if not districts_in_city:
-         keyboard = [[InlineKeyboardButton("⬅️ Back to Cities", callback_data="adm_manage_products")]]
+         keyboard = [[InlineKeyboardButton("⬅️ Atgal į miestus", callback_data="adm_manage_products")]]
          return await query.edit_message_text(f"No districts found for {city_name}. Cannot manage products.",
                                  reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     sorted_district_ids = sorted(districts_in_city.keys(), key=lambda d_id: districts_in_city.get(d_id,''))
@@ -1830,7 +1830,7 @@ async def handle_adm_manage_products_city(update: Update, context: ContextTypes.
          if dist_name:
              keyboard.append([InlineKeyboardButton(f"🏘️ {dist_name}", callback_data=f"adm_manage_products_dist|{city_id}|{d}")])
          else: logger.warning(f"District name missing for ID {d} in city {city_id} (manage products)")
-    keyboard.append([InlineKeyboardButton("⬅️ Back to Cities", callback_data="adm_manage_products")])
+    keyboard.append([InlineKeyboardButton("⬅️ Atgal į miestus", callback_data="adm_manage_products")])
     await query.edit_message_text(f"🗑️ Manage Products in {city_name}\n\nSelect district:",
                             reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
@@ -1838,7 +1838,7 @@ async def handle_adm_manage_products_city(update: Update, context: ContextTypes.
 async def handle_adm_manage_products_dist(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Admin selects product type to manage within the district."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     if not params or len(params) < 2: return await query.answer("Error: City/District ID missing.", show_alert=True)
     city_id, dist_id = params
     city_name = CITIES.get(city_id)
@@ -1874,8 +1874,8 @@ async def handle_adm_manage_products_dist(update: Update, context: ContextTypes.
 async def handle_adm_manage_products_type(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Shows specific products of a type and allows deletion."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
-    if not params or len(params) < 3: return await query.answer("Error: Location/Type info missing.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
+    if not params or len(params) < 3: return await query.answer("Klaida: Trūksta vietos/tipo informacijos.", show_alert=True)
     city_id, dist_id, p_type = params
     city_name = CITIES.get(city_id)
     district_name = DISTRICTS.get(city_id, {}).get(dist_id)
@@ -1928,7 +1928,7 @@ async def handle_adm_manage_products_type(update: Update, context: ContextTypes.
 async def handle_adm_delete_prod(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles 'Delete Product' button press, shows confirmation."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     if not params: return await query.answer("Error: Product ID missing.", show_alert=True)
     try: product_id = int(params[0])
     except ValueError: return await query.answer("Error: Invalid Product ID.", show_alert=True)
@@ -1975,13 +1975,13 @@ async def handle_adm_reassign_type_start(update: Update, context: ContextTypes.D
     """Shows interface for reassigning products from one type to another."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id): 
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     load_all_data()
     if len(PRODUCT_TYPES) < 2:
         return await query.edit_message_text(
             "🔄 Reassign Product Type\n\n❌ You need at least 2 product types to perform reassignment.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back", callback_data="admin_menu")]]),
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Atgal", callback_data="admin_menu")]]),
             parse_mode=None
         )
     
@@ -2013,14 +2013,14 @@ async def handle_adm_reassign_type_start(update: Update, context: ContextTypes.D
             button_text += f" ({product_count} products)"
         keyboard.append([InlineKeyboardButton(button_text, callback_data=f"adm_reassign_select_old|{type_name}")])
     
-    keyboard.append([InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")])
+    keyboard.append([InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")])
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 async def handle_adm_reassign_select_old(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles selection of the old product type to reassign from."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id): 
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     if not params:
         return await query.answer("Error: Type name missing.", show_alert=True)
@@ -2031,7 +2031,7 @@ async def handle_adm_reassign_select_old(update: Update, context: ContextTypes.D
     if old_type_name not in PRODUCT_TYPES:
         return await query.edit_message_text(
             f"❌ Error: Product type '{old_type_name}' not found.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back", callback_data="adm_reassign_type_start")]]),
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Atgal", callback_data="adm_reassign_type_start")]]),
             parse_mode=None
         )
     
@@ -2056,7 +2056,7 @@ async def handle_adm_reassign_confirm(update: Update, context: ContextTypes.DEFA
     """Shows confirmation for the product type reassignment."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id): 
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     if not params or len(params) < 2:
         return await query.answer("Error: Type names missing.", show_alert=True)
@@ -2069,7 +2069,7 @@ async def handle_adm_reassign_confirm(update: Update, context: ContextTypes.DEFA
     if old_type_name not in PRODUCT_TYPES or new_type_name not in PRODUCT_TYPES:
         return await query.edit_message_text(
             "❌ Error: One or both product types not found.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back", callback_data="adm_reassign_type_start")]]),
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Atgal", callback_data="adm_reassign_type_start")]]),
             parse_mode=None
         )
     
@@ -2096,7 +2096,7 @@ async def handle_adm_reassign_confirm(update: Update, context: ContextTypes.DEFA
         logger.error(f"Error counting items for reassignment: {e}")
         return await query.edit_message_text(
             "❌ Database error checking reassignment impact.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back", callback_data="adm_reassign_type_start")]]),
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Atgal", callback_data="adm_reassign_type_start")]]),
             parse_mode=None
         )
     finally:
@@ -2123,7 +2123,7 @@ async def handle_adm_reassign_confirm(update: Update, context: ContextTypes.DEFA
     
     keyboard = [
         [InlineKeyboardButton(f"✅ YES, Reassign {product_count} Products", callback_data=f"confirm_yes|confirm_reassign_type|{old_type_name}|{new_type_name}")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="adm_reassign_type_start")]
+        [InlineKeyboardButton("❌ Atšaukti", callback_data="adm_reassign_type_start")]
     ]
     
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
@@ -2132,7 +2132,7 @@ async def handle_adm_reassign_confirm(update: Update, context: ContextTypes.DEFA
 async def handle_adm_manage_types(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Shows options to manage product types (edit emoji, delete)."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     load_all_data() # Ensure PRODUCT_TYPES is up-to-date
     if not PRODUCT_TYPES: msg = "🧩 Manage Product Types\n\nNo product types configured."
     else: msg = "🧩 Manage Product Types\n\nSelect a type to edit or delete:"
@@ -2144,7 +2144,7 @@ async def handle_adm_manage_types(update: Update, context: ContextTypes.DEFAULT_
          ])
     keyboard.extend([
         [InlineKeyboardButton("➕ Add New Type", callback_data="adm_add_type")],
-        [InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")]
+        [InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")]
     ])
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
@@ -2207,7 +2207,7 @@ async def handle_adm_change_type_emoji(update: Update, context: ContextTypes.DEF
     """Handles 'Change Emoji' button press."""
     query = update.callback_query
     lang, lang_data = _get_lang_data(context) # Use helper
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     if not params: return await query.answer("Error: Type name missing.", show_alert=True)
     type_name = params[0]
 
@@ -2216,7 +2216,7 @@ async def handle_adm_change_type_emoji(update: Update, context: ContextTypes.DEF
     current_emoji = PRODUCT_TYPES.get(type_name, DEFAULT_PRODUCT_EMOJI)
 
     prompt_text = lang_data.get("admin_enter_type_emoji", "✍️ Please reply with a single emoji for the product type:")
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data=f"adm_edit_type_menu|{type_name}")]]
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data=f"adm_edit_type_menu|{type_name}")]]
     await query.edit_message_text(f"Current Emoji: {current_emoji}\n\n{prompt_text}", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     await query.answer("Enter new emoji in chat.")
 
@@ -2225,7 +2225,7 @@ async def handle_adm_change_type_name(update: Update, context: ContextTypes.DEFA
     """Handles 'Change Name' button press."""
     query = update.callback_query
     lang, lang_data = _get_lang_data(context) # Use helper
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     if not params: return await query.answer("Error: Type name missing.", show_alert=True)
     
     old_type_name = params[0]
@@ -2234,7 +2234,7 @@ async def handle_adm_change_type_name(update: Update, context: ContextTypes.DEFA
     
     prompt_text = lang_data.get("admin_enter_type_name", "✍️ Please reply with the new name for this product type:")
     warning_text = "⚠️ WARNING: This will update ALL products and reseller discounts using this type!"
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data=f"adm_edit_type_menu|{old_type_name}")]]
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data=f"adm_edit_type_menu|{old_type_name}")]]
     
     await query.edit_message_text(
         f"Current Name: {old_type_name}\n\n{warning_text}\n\n{prompt_text}", 
@@ -2246,16 +2246,16 @@ async def handle_adm_change_type_name(update: Update, context: ContextTypes.DEFA
 async def handle_adm_add_type(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles 'Add New Type' button press - asks for name first."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     context.user_data["state"] = "awaiting_new_type_name"
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="adm_manage_types")]]
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data="adm_manage_types")]]
     await query.edit_message_text("🧩 Please reply with the name for the new product type:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     await query.answer("Enter type name in chat.")
 
 async def handle_adm_delete_type(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles 'Delete Type' button, checks usage, shows confirmation or force delete option."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     if not params: return await query.answer("Error: Type name missing.", show_alert=True)
     type_name_to_delete = params[0] # Use a distinct variable name
     conn = None
@@ -2312,7 +2312,7 @@ async def handle_confirm_force_delete_prompt(update: Update, context: ContextTyp
     if not type_name:
         logger.error("handle_confirm_force_delete_prompt: force_delete_type_name not found in user_data.")
         await query.edit_message_text("Error: Could not retrieve type name for force delete. Please try again.",
-                                      reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back", callback_data="adm_manage_types")]]))
+                                      reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Atgal", callback_data="adm_manage_types")]]))
         return
 
     context.user_data["confirm_action"] = f"force_delete_type_CASCADE|{type_name}" # Set up for handle_confirm_yes
@@ -2397,7 +2397,7 @@ async def handle_adm_manage_discounts(update: Update, context: ContextTypes.DEFA
                 ])
         keyboard.extend([
             [InlineKeyboardButton("➕ Add New General Discount", callback_data="adm_add_discount_start")],
-            [InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")]
+            [InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")]
         ])
         try:
              # Use MarkdownV2 for code formatting
@@ -2492,7 +2492,7 @@ async def handle_adm_add_discount_start(update: Update, context: ContextTypes.DE
     random_code = secrets.token_urlsafe(8).upper().replace('-', '').replace('_', '')[:8]
     keyboard = [
         [InlineKeyboardButton(f"Use Generated: {random_code}", callback_data=f"adm_use_generated_code|{random_code}")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="adm_manage_discounts")]
+        [InlineKeyboardButton("❌ Atšaukti", callback_data="adm_manage_discounts")]
     ]
     await query.edit_message_text(
         "🏷️ Add New General Discount Code\n\nPlease reply with the code text you want to use (e.g., SUMMER20), or use the generated one below.\n"
@@ -2527,7 +2527,7 @@ async def process_discount_code_input(update, context, code_text):
     if not code_text or not code_text.strip():
         error_msg = "❌ Code cannot be empty."
         if query:
-            await query.edit_message_text(error_msg, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back", callback_data="adm_manage_discounts")]]), parse_mode=None)
+            await query.edit_message_text(error_msg, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Atgal", callback_data="adm_manage_discounts")]]), parse_mode=None)
         else:
             await send_message_with_retry(context.bot, chat_id, error_msg, parse_mode=None)
         return
@@ -2544,7 +2544,7 @@ async def process_discount_code_input(update, context, code_text):
         if existing:
             error_msg = f"❌ Code '{code_text}' already exists. Please choose a different one."
             if query:
-                keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data="adm_add_discount_start")]]
+                keyboard = [[InlineKeyboardButton("⬅️ Atgal", callback_data="adm_add_discount_start")]]
                 await query.edit_message_text(error_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
             else:
                 await send_message_with_retry(context.bot, chat_id, error_msg, parse_mode=None)
@@ -2553,7 +2553,7 @@ async def process_discount_code_input(update, context, code_text):
         logger.error(f"DB error checking existing discount codes: {e}")
         error_msg = "❌ Database error. Please try again."
         if query:
-            await query.edit_message_text(error_msg, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back", callback_data="adm_manage_discounts")]]), parse_mode=None)
+            await query.edit_message_text(error_msg, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Atgal", callback_data="adm_manage_discounts")]]), parse_mode=None)
         else:
             await send_message_with_retry(context.bot, chat_id, error_msg, parse_mode=None)
         return
@@ -2569,7 +2569,7 @@ async def process_discount_code_input(update, context, code_text):
     keyboard = [
         [InlineKeyboardButton("📊 Percentage", callback_data="adm_set_discount_type|percentage")],
         [InlineKeyboardButton("💰 Fixed Amount", callback_data="adm_set_discount_type|fixed")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="adm_manage_discounts")]
+        [InlineKeyboardButton("❌ Atšaukti", callback_data="adm_manage_discounts")]
     ]
     
     if query:
@@ -2709,7 +2709,7 @@ async def handle_adm_set_discount_type(update: Update, context: ContextTypes.DEF
                     "Enter the fixed discount amount in EUR (e.g., 5.50):")
     code_text = context.user_data.get('new_discount_info', {}).get('code', 'N/A')
     msg = f"Code: {code_text} | Type: {discount_type.capitalize()}\n\n{value_prompt}"
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="adm_manage_discounts")]]
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data="adm_manage_discounts")]]
     try:
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
         await query.answer("Enter the discount value.")
@@ -2723,11 +2723,11 @@ async def handle_adm_set_discount_type(update: Update, context: ContextTypes.DEF
 async def handle_adm_set_media(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles 'Set Bot Media' button press."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     lang, lang_data = _get_lang_data(context) # Use helper
     set_media_prompt_text = lang_data.get("set_media_prompt_plain", "Send a photo, video, or GIF to display above all messages:")
     context.user_data["state"] = "awaiting_bot_media"
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="admin_menu")]]
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data="admin_menu")]]
     await query.edit_message_text(set_media_prompt_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     await query.answer("Send photo, video, or GIF.")
 
@@ -2796,7 +2796,7 @@ async def handle_adm_bot_media_message(update: Update, context: ContextTypes.DEF
         # Confirmation message
         success_msg = f"✅ Bot media updated successfully!\n\n📎 Type: {media_type.upper()}\n📁 Saved as: {media_filename}\n\nThis media will now be displayed when users start the bot."
         
-        keyboard = [[InlineKeyboardButton("🔙 Back to Admin Menu", callback_data="admin_menu")]]
+        keyboard = [[InlineKeyboardButton("🔙 Atgal į Admin meniu", callback_data="admin_menu")]]
         await send_message_with_retry(context.bot, chat_id, success_msg, 
             reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
         
@@ -2856,7 +2856,7 @@ async def handle_adm_manage_reviews(update: Update, context: ContextTypes.DEFAUL
         if has_more: nav_buttons.append(InlineKeyboardButton("➡️ Next", callback_data=f"adm_manage_reviews|{offset + reviews_per_page}"))
         if nav_buttons: keyboard.append(nav_buttons)
     back_callback = "admin_menu" if primary_admin else "viewer_admin_menu"
-    keyboard.append([InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data=back_callback)])
+    keyboard.append([InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data=back_callback)])
     try:
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     except telegram_error.BadRequest as e:
@@ -2873,7 +2873,7 @@ async def handle_adm_delete_review_confirm(update: Update, context: ContextTypes
     """Handles 'Delete Review' button press, shows confirmation."""
     query = update.callback_query
     user_id = query.from_user.id
-    if not is_primary_admin(user_id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(user_id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     if not params: return await query.answer("Error: Review ID missing.", show_alert=True)
     try: review_id = int(params[0])
     except ValueError: return await query.answer("Error: Invalid Review ID.", show_alert=True)
@@ -2923,7 +2923,7 @@ async def handle_adm_broadcast_start(update: Update, context: ContextTypes.DEFAU
         [InlineKeyboardButton(lang_data.get("broadcast_target_city", "🏙️ By Last Purchased City"), callback_data="adm_broadcast_target_type|city")],
         [InlineKeyboardButton(lang_data.get("broadcast_target_status", "👑 By User Status"), callback_data="adm_broadcast_target_type|status")],
         [InlineKeyboardButton(lang_data.get("broadcast_target_inactive", "⏳ By Inactivity (Days)"), callback_data="adm_broadcast_target_type|inactive")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="admin_menu")]
+        [InlineKeyboardButton("❌ Atšaukti", callback_data="admin_menu")]
     ]
     await query.edit_message_text(prompt_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     await query.answer()
@@ -2949,7 +2949,7 @@ async def handle_adm_broadcast_target_type(update: Update, context: ContextTypes
     elif target_type == 'city':
         load_all_data()
         if not CITIES:
-             await query.edit_message_text("No cities configured. Cannot target by city.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Back", callback_data="adm_broadcast_start")]]), parse_mode=None)
+             await query.edit_message_text("No cities configured. Cannot target by city.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Atgal", callback_data="adm_broadcast_start")]]), parse_mode=None)
              return
         sorted_city_ids = sorted(CITIES.keys(), key=lambda city_id: CITIES.get(city_id, ''))
         keyboard = [[InlineKeyboardButton(f"🏙️ {CITIES.get(c,'N/A')}", callback_data=f"adm_broadcast_target_city|{CITIES.get(c,'N/A')}")] for c in sorted_city_ids if CITIES.get(c)]
@@ -3059,8 +3059,8 @@ async def handle_cancel_broadcast(update: Update, context: ContextTypes.DEFAULT_
         await query.edit_message_text("❌ Broadcast cancelled.", parse_mode=None)
     except telegram_error.BadRequest: await query.answer()
 
-    keyboard = [[InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")]]
-    await send_message_with_retry(context.bot, query.message.chat_id, "Returning to Admin Menu.", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
+    keyboard = [[InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")]]
+    await send_message_with_retry(context.bot, query.message.chat_id, "Grįžtama į Admin meniu.", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 # --- Handler for Broadcast Message Content ---
 async def handle_adm_broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -3121,7 +3121,7 @@ async def handle_adm_broadcast_message(update: Update, context: ContextTypes.DEF
     
     keyboard = [
         [InlineKeyboardButton("✅ Yes, Send Broadcast", callback_data="confirm_broadcast")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="cancel_broadcast")]
+        [InlineKeyboardButton("❌ Atšaukti", callback_data="cancel_broadcast")]
     ]
     
     await update.message.reply_text(
@@ -3386,7 +3386,7 @@ async def handle_confirm_yes(update: Update, context: ContextTypes.DEFAULT_TYPE,
     action_type = action_parts[0]
     action_params = action_parts[1:]
     logger.info(f"Admin {user_id} confirmed action: {action_type} with params: {action_params}")
-    success_msg, next_callback = "✅ Action completed successfully!", "admin_menu"
+    success_msg, next_callback = "✅ Veiksmas sėkmingai įvykdytas!", "admin_menu"
     conn = None # Initialize conn
     try:
         conn = get_db_connection() # Use helper
@@ -3623,7 +3623,7 @@ async def handle_confirm_yes(update: Update, context: ContextTypes.DEFAULT_TYPE,
                 next_callback = f"reseller_manage_specific|{reseller_id}"
             except (ValueError, IndexError) as param_err:
                 conn.rollback(); logger.error(f"Invalid params for delete reseller discount: {action_params} - {param_err}")
-                success_msg = "❌ Error processing request."; next_callback = "admin_menu"
+                success_msg = "❌ Klaida apdorojant užklausą."; next_callback = "admin_menu"
         # <<< Clear All Reservations Logic >>>
         elif action_type == "clear_all_reservations":
             logger.warning(f"ADMIN ACTION: Admin {user_id} is clearing ALL reservations and baskets.")
@@ -3643,7 +3643,7 @@ async def handle_confirm_yes(update: Update, context: ContextTypes.DEFAULT_TYPE,
         try: await query.edit_message_text(success_msg, parse_mode=None)
         except telegram_error.BadRequest: pass
 
-        keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data=next_callback)]]
+        keyboard = [[InlineKeyboardButton("⬅️ Atgal", callback_data=next_callback)]]
         await send_message_with_retry(context.bot, chat_id, "Action complete. What next?", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
     except (sqlite3.Error, ValueError, OSError, Exception) as e:
@@ -3853,7 +3853,7 @@ async def handle_adm_welcome_template_name_message(update: Update, context: Cont
     prompt_template = lang_data.get("welcome_add_text_prompt", "Template Name: {name}\n\nPlease reply with the full welcome message text. Available placeholders:\n`{placeholders}`")
     prompt = prompt_template.format(name=template_name, placeholders=placeholders)
     
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="adm_manage_welcome|0")]]
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data="adm_manage_welcome|0")]]
     await send_message_with_retry(context.bot, chat_id, prompt, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 async def handle_adm_welcome_template_text_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -3885,7 +3885,7 @@ async def handle_adm_welcome_template_text_message(update: Update, context: Cont
         
         lang, lang_data = _get_lang_data(context)
         prompt = lang_data.get("welcome_add_description_prompt", "Optional: Enter a short description for this template (admin view only). Send '-' to skip.")
-        keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="adm_manage_welcome|0")]]
+        keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data="adm_manage_welcome|0")]]
         await send_message_with_retry(context.bot, chat_id, prompt, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
         
     elif state == "awaiting_welcome_template_edit":
@@ -4072,7 +4072,7 @@ async def _show_welcome_preview(update: Update, context: ContextTypes.DEFAULT_TY
 
     keyboard = [
         [InlineKeyboardButton(lang_data.get("welcome_button_save", "💾 Save Template"), callback_data=f"confirm_save_welcome")],
-        [InlineKeyboardButton("❌ Cancel", callback_data=cancel_callback)]
+        [InlineKeyboardButton("❌ Atšaukti", callback_data=cancel_callback)]
     ]
 
     # Send or edit the message (using plain text)
@@ -4486,7 +4486,7 @@ async def display_user_search_results(bot, chat_id: int, user_info: dict):
         InlineKeyboardButton("🔍 Search Another", callback_data="adm_search_user_start"),
         InlineKeyboardButton("👥 Browse All", callback_data="adm_manage_users|0")
     ])
-    keyboard.append([InlineKeyboardButton("⬅️ Admin Menu", callback_data="admin_menu")])
+    keyboard.append([InlineKeyboardButton("⬅️ Admin meniu", callback_data="admin_menu")])
     
     await send_message_with_retry(bot, chat_id, msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
@@ -4496,7 +4496,7 @@ async def display_user_search_results(bot, chat_id: int, user_info: dict):
 async def handle_adm_bulk_back_to_messages(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Returns to the message collection interface."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     context.user_data["state"] = "awaiting_bulk_messages"
     await show_bulk_messages_status(update, context)
@@ -4504,7 +4504,7 @@ async def handle_adm_bulk_back_to_messages(update: Update, context: ContextTypes
 async def handle_adm_bulk_execute_messages(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Executes the bulk product creation from collected messages."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     chat_id = query.message.chat_id
     bulk_messages = context.user_data.get("bulk_messages", [])
@@ -4673,7 +4673,7 @@ async def handle_adm_bulk_execute_messages(update: Update, context: ContextTypes
     failed_count = len(failed_messages)
     
     # Main result message
-    result_msg = f"📦 Bulk Operation Complete!\n\n"
+    result_msg = f"📦 Masinė operacija baigta!\n\n"
     result_msg += f"📍 Location: {city} / {district}\n"
     result_msg += f"{type_emoji} Product: {p_type} {size}\n"
     result_msg += f"💰 Price: {format_currency(price)}€\n\n"
@@ -4709,8 +4709,8 @@ async def handle_adm_bulk_execute_messages(update: Update, context: ContextTypes
     
     keyboard = [
         [InlineKeyboardButton("📦 Add More Bulk Products", callback_data="adm_bulk_city")],
-        [InlineKeyboardButton("🔧 Admin Menu", callback_data="admin_menu"), 
-         InlineKeyboardButton("🏠 User Home", callback_data="back_start")]
+        [InlineKeyboardButton("🔧 Admin meniu", callback_data="admin_menu"), 
+         InlineKeyboardButton("🏠 Pagrindinis", callback_data="back_start")]
     ]
     
     # Send the main result message
@@ -4757,7 +4757,7 @@ async def handle_adm_new_type_name_message(update: Update, context: ContextTypes
     context.user_data["new_type_name"] = type_name
     context.user_data["state"] = "awaiting_new_type_emoji"
     
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="adm_manage_types")]]
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data="adm_manage_types")]]
     await send_message_with_retry(context.bot, update.effective_chat.id, 
         f"🧩 Product Type: {type_name}\n\n"
         "✍️ Please reply with a single emoji for this product type:", 
@@ -4785,7 +4785,7 @@ async def handle_adm_new_type_emoji_message(update: Update, context: ContextType
     context.user_data["state"] = "awaiting_new_type_description"
     
     type_name = context.user_data.get("new_type_name", "Unknown")
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="adm_manage_types")]]
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data="adm_manage_types")]]
     await send_message_with_retry(context.bot, update.effective_chat.id, 
         f"🧩 Product Type: {emoji} {type_name}\n\n"
         "📝 Please reply with a description for this product type (or send 'skip' to leave empty):", 
@@ -4840,7 +4840,7 @@ async def handle_adm_new_type_description_message(update: Update, context: Conte
             ])
         keyboard.extend([
             [InlineKeyboardButton("➕ Add New Type", callback_data="adm_add_type")],
-            [InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")]
+            [InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")]
         ])
         
         success_msg = f"✅ Product type '{emoji} {type_name}' created successfully!"
@@ -4938,7 +4938,7 @@ async def handle_adm_search_user_start(update: Update, context: ContextTypes.DEF
     """Starts the user search process by prompting for username."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id): 
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     context.user_data['state'] = 'awaiting_search_username'
     
@@ -4950,7 +4950,7 @@ async def handle_adm_search_user_start(update: Update, context: ContextTypes.DEF
         "• 123456789 (User ID)"
     )
     
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="admin_menu")]]
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data="admin_menu")]]
     
     await query.edit_message_text(prompt_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     await query.answer("Enter username or User ID in chat.")
@@ -5021,7 +5021,7 @@ async def handle_adm_search_username_message(update: Update, context: ContextTyp
         keyboard = [
             [InlineKeyboardButton("🔍 Search Again", callback_data="adm_search_user_start")],
             [InlineKeyboardButton("👥 Browse All Users", callback_data="adm_manage_users|0")],
-            [InlineKeyboardButton("⬅️ Admin Menu", callback_data="admin_menu")]
+            [InlineKeyboardButton("⬅️ Admin meniu", callback_data="admin_menu")]
         ]
         await send_message_with_retry(
             context.bot, chat_id, 
@@ -5039,7 +5039,7 @@ async def handle_adm_user_deposits(update: Update, context: ContextTypes.DEFAULT
     """Shows detailed pending deposits for a user."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id): 
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     if not params or not params[0].isdigit():
         return await query.answer("Error: Invalid user ID.", show_alert=True)
@@ -5112,7 +5112,7 @@ async def handle_adm_user_purchases(update: Update, context: ContextTypes.DEFAUL
     """Shows paginated purchase history for a user."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id): 
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     if not params or len(params) < 2 or not params[0].isdigit() or not params[1].isdigit():
         return await query.answer("Error: Invalid parameters.", show_alert=True)
@@ -5206,7 +5206,7 @@ async def handle_adm_user_actions(update: Update, context: ContextTypes.DEFAULT_
     """Shows paginated admin actions for a user."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id): 
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     if not params or len(params) < 2 or not params[0].isdigit() or not params[1].isdigit():
         return await query.answer("Error: Invalid parameters.", show_alert=True)
@@ -5299,7 +5299,7 @@ async def handle_adm_user_discounts(update: Update, context: ContextTypes.DEFAUL
     """Shows reseller discounts for a user."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id): 
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     if not params or not params[0].isdigit():
         return await query.answer("Error: Invalid user ID.", show_alert=True)
@@ -5362,7 +5362,7 @@ async def handle_adm_user_overview(update: Update, context: ContextTypes.DEFAULT
     """Returns to user overview from detailed sections."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id): 
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     if not params or not params[0].isdigit():
         return await query.answer("Error: Invalid user ID.", show_alert=True)
@@ -5466,7 +5466,7 @@ async def handle_adm_manage_welcome(update: Update, context: ContextTypes.DEFAUL
     # Add "Add New" and "Reset Default" buttons
     keyboard.append([InlineKeyboardButton("➕ Add New Template", callback_data="adm_add_welcome_start")])
     keyboard.append([InlineKeyboardButton("🔄 Reset to Built-in Default", callback_data="adm_reset_default_confirm")])
-    keyboard.append([InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")])
+    keyboard.append([InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")])
 
     final_msg = "".join(msg_parts)
 
@@ -5511,7 +5511,7 @@ async def handle_adm_add_welcome_start(update: Update, context: ContextTypes.DEF
 
     context.user_data['state'] = 'awaiting_welcome_template_name'
     prompt = lang_data.get("welcome_add_name_prompt", "Enter a unique short name for the new template (e.g., 'default', 'promo_weekend'):")
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="adm_manage_welcome|0")]] # Go back to first page
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data="adm_manage_welcome|0")]] # Go back to first page
     await query.edit_message_text(prompt, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     await query.answer("Enter template name in chat.")
 
@@ -5562,7 +5562,7 @@ async def handle_adm_edit_welcome(update: Update, context: ContextTypes.DEFAULT_
     keyboard = [
         [InlineKeyboardButton("Edit Text", callback_data=f"adm_edit_welcome_text|{template_name}")],
         [InlineKeyboardButton("Edit Description", callback_data=f"adm_edit_welcome_desc|{template_name}")],
-        [InlineKeyboardButton("⬅️ Back", callback_data=f"adm_manage_welcome|{offset}")]
+        [InlineKeyboardButton("⬅️ Atgal", callback_data=f"adm_manage_welcome|{offset}")]
     ]
     try:
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
@@ -5846,7 +5846,7 @@ async def handle_adm_debug_reseller_discount(update: Update, context: ContextTyp
     """Debug reseller discount system for a specific user."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id): 
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     if not params or not params[0].isdigit():
         return await query.answer("Error: Invalid user ID.", show_alert=True)
@@ -5924,7 +5924,7 @@ async def handle_adm_recent_purchases(update: Update, context: ContextTypes.DEFA
     """Shows real-time monitoring of recent purchases with detailed information."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id):
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     # Get pagination offset if provided
     offset = 0
@@ -6038,7 +6038,7 @@ async def handle_adm_recent_purchases(update: Update, context: ContextTypes.DEFA
         msg += f"\nPage {current_page}/{total_pages}"
     
     keyboard.append([InlineKeyboardButton("🔄 Refresh", callback_data="adm_recent_purchases|0")])
-    keyboard.append([InlineKeyboardButton("⬅️ Admin Menu", callback_data="admin_menu")])
+    keyboard.append([InlineKeyboardButton("⬅️ Admin meniu", callback_data="admin_menu")])
     
     try:
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
@@ -6068,7 +6068,7 @@ async def handle_manual_payment_recovery(update: Update, context: ContextTypes.D
     msg = ("🔧 Manual Payment Recovery\n\n"
            "Enter the payment ID that failed to process:")
     
-    keyboard = [[InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")]]
+    keyboard = [[InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")]]
     
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     await query.answer("Enter Payment ID in chat.")
@@ -6355,7 +6355,7 @@ async def handle_adm_edit_type_name_message(update: Update, context: ContextType
     
     keyboard = [
         [InlineKeyboardButton("✅ Confirm Change", callback_data="adm_confirm_type_name_change")],
-        [InlineKeyboardButton("❌ Cancel", callback_data=f"adm_edit_type_menu|{old_type_name}")]
+        [InlineKeyboardButton("❌ Atšaukti", callback_data=f"adm_edit_type_menu|{old_type_name}")]
     ]
     
     await send_message_with_retry(context.bot, update.effective_chat.id, 
@@ -6370,7 +6370,7 @@ async def handle_adm_edit_type_name_message(update: Update, context: ContextType
 async def handle_adm_confirm_type_name_change(update: Update, context: ContextTypes.DEFAULT_TYPE, params=None):
     """Handles confirmation of type name change."""
     query = update.callback_query
-    if not is_primary_admin(query.from_user.id): return await query.answer("Access denied.", show_alert=True)
+    if not is_primary_admin(query.from_user.id): return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     old_type_name = context.user_data.get("edit_old_type_name")
     new_type_name = context.user_data.get("edit_new_type_name")
@@ -6464,14 +6464,14 @@ async def handle_adm_analyze_logs_start(update: Update, context: ContextTypes.DE
     
     # SECURITY: Only secondary admins can access this feature
     if not is_secondary_admin(user_id):
-        return await query.answer("Access denied. This feature is for secondary admins only.", show_alert=True)
+        return await query.answer("Prieiga uždrausta. This feature is for secondary admins only.", show_alert=True)
     
     await query.answer()
     
     # Set state for file upload
     context.user_data['state'] = 'awaiting_render_logs'
     
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="admin_menu")]]
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data="admin_menu")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     message = (
@@ -6499,7 +6499,7 @@ async def handle_adm_render_logs_message(update: Update, context: ContextTypes.D
     
     # SECURITY: Only secondary admins can access this feature
     if not is_secondary_admin(user_id):
-        await send_message_with_retry(context.bot, update.effective_chat.id, "Access denied. This feature is for secondary admins only.", parse_mode=None)
+        await send_message_with_retry(context.bot, update.effective_chat.id, "Prieiga uždrausta. This feature is for secondary admins only.", parse_mode=None)
         return
     
     # Check if user is in the right state
@@ -6511,7 +6511,7 @@ async def handle_adm_render_logs_message(update: Update, context: ContextTypes.D
     
     # Check if message has a document
     if not update.message.document:
-        keyboard = [[InlineKeyboardButton("🔙 Back to Admin Menu", callback_data="admin_menu")]]
+        keyboard = [[InlineKeyboardButton("🔙 Atgal į Admin meniu", callback_data="admin_menu")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await send_message_with_retry(
@@ -6528,7 +6528,7 @@ async def handle_adm_render_logs_message(update: Update, context: ContextTypes.D
     
     # Validate file type
     if not (document.file_name.endswith('.txt') or document.file_name.endswith('.log')):
-        keyboard = [[InlineKeyboardButton("🔙 Back to Admin Menu", callback_data="admin_menu")]]
+        keyboard = [[InlineKeyboardButton("🔙 Atgal į Admin meniu", callback_data="admin_menu")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await send_message_with_retry(
@@ -6543,7 +6543,7 @@ async def handle_adm_render_logs_message(update: Update, context: ContextTypes.D
     
     # Validate file size (max 20MB)
     if document.file_size > 20 * 1024 * 1024:
-        keyboard = [[InlineKeyboardButton("🔙 Back to Admin Menu", callback_data="admin_menu")]]
+        keyboard = [[InlineKeyboardButton("🔙 Atgal į Admin meniu", callback_data="admin_menu")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await send_message_with_retry(
@@ -6604,7 +6604,7 @@ async def handle_adm_render_logs_message(update: Update, context: ContextTypes.D
     except Exception as e:
         logger.error(f"Error processing render logs: {e}", exc_info=True)
         
-        keyboard = [[InlineKeyboardButton("🔙 Back to Admin Menu", callback_data="admin_menu")]]
+        keyboard = [[InlineKeyboardButton("🔙 Atgal į Admin meniu", callback_data="admin_menu")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await send_message_with_retry(
@@ -6740,7 +6740,7 @@ async def analyze_render_logs(log_content: str) -> dict:
 async def send_log_analysis_results(bot, chat_id: int, analysis_result: dict):
     """Send log analysis results to admin - SIMPLE VERSION"""
     if "error" in analysis_result:
-        keyboard = [[InlineKeyboardButton("🔙 Back to Admin Menu", callback_data="admin_menu")]]
+        keyboard = [[InlineKeyboardButton("🔙 Atgal į Admin meniu", callback_data="admin_menu")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await send_message_with_retry(
@@ -6757,7 +6757,7 @@ async def send_log_analysis_results(bot, chat_id: int, analysis_result: dict):
     note = analysis_result.get("note", "")
     
     if not affected_users:
-        keyboard = [[InlineKeyboardButton("🔙 Back to Admin Menu", callback_data="admin_menu")]]
+        keyboard = [[InlineKeyboardButton("🔙 Atgal į Admin meniu", callback_data="admin_menu")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         if note:
@@ -6825,7 +6825,7 @@ async def send_log_analysis_results(bot, chat_id: int, analysis_result: dict):
         await send_message_with_retry(bot, chat_id, all_products_text, parse_mode=None)
     
     # Add back button
-    keyboard = [[InlineKeyboardButton("🔙 Back to Admin Menu", callback_data="admin_menu")]]
+    keyboard = [[InlineKeyboardButton("🔙 Atgal į Admin meniu", callback_data="admin_menu")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await send_message_with_retry(bot, chat_id, "Analysis complete!", reply_markup=reply_markup, parse_mode=None)
 
@@ -7002,13 +7002,13 @@ async def handle_adm_bulk_edit_prices_start(update: Update, context: ContextType
     """Display list of product types for bulk price editing."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id):
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     load_all_data()  # Ensure PRODUCT_TYPES is up-to-date
     
     if not PRODUCT_TYPES:
         msg = "💰 Bulk Edit Prices\n\nNo product types available."
-        keyboard = [[InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")]]
+        keyboard = [[InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")]]
         return await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     
     msg = "💰 Bulk Edit Prices\n\nSelect the product type you want to update:"
@@ -7017,7 +7017,7 @@ async def handle_adm_bulk_edit_prices_start(update: Update, context: ContextType
     for type_name, emoji in sorted(PRODUCT_TYPES.items()):
         keyboard.append([InlineKeyboardButton(f"{emoji} {type_name}", callback_data=f"adm_bulk_price_type|{type_name}")])
     
-    keyboard.append([InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")])
+    keyboard.append([InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")])
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 
@@ -7025,7 +7025,7 @@ async def handle_adm_bulk_price_type(update: Update, context: ContextTypes.DEFAU
     """Store product type and show scope selection."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id):
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     if not params or len(params) < 1:
         return await query.answer("Error: Product type not specified.", show_alert=True)
@@ -7040,7 +7040,7 @@ async def handle_adm_bulk_price_type(update: Update, context: ContextTypes.DEFAU
         [InlineKeyboardButton("🌍 All Cities and Districts", callback_data="adm_bulk_price_scope|all")],
         [InlineKeyboardButton("🏙️ Specific City (all districts)", callback_data="adm_bulk_price_scope|city")],
         [InlineKeyboardButton("📍 Specific City + District", callback_data="adm_bulk_price_scope|district")],
-        [InlineKeyboardButton("⬅️ Back", callback_data="adm_bulk_edit_prices_start")]
+        [InlineKeyboardButton("⬅️ Atgal", callback_data="adm_bulk_edit_prices_start")]
     ]
     
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
@@ -7050,7 +7050,7 @@ async def handle_adm_bulk_price_scope(update: Update, context: ContextTypes.DEFA
     """Handle scope selection and proceed accordingly."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id):
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     if not params or len(params) < 1:
         return await query.answer("Error: Scope not specified.", show_alert=True)
@@ -7064,14 +7064,14 @@ async def handle_adm_bulk_price_scope(update: Update, context: ContextTypes.DEFA
         # Skip to price input for all locations
         msg = f"💰 Bulk Edit Prices\n\nProduct Type: {emoji} {product_type}\nScope: All Cities and Districts\n\nEnter the new price (in EUR):"
         context.user_data['state'] = 'awaiting_bulk_price_value'
-        keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="admin_menu")]]
+        keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data="admin_menu")]]
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     
     elif scope == "city" or scope == "district":
         # Show city selection
         if not CITIES:
             msg = "No cities configured. Please add cities first."
-            keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data="adm_bulk_edit_prices_start")]]
+            keyboard = [[InlineKeyboardButton("⬅️ Atgal", callback_data="adm_bulk_edit_prices_start")]]
             return await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
         
         scope_text = "City (all districts)" if scope == "city" else "City + District"
@@ -7087,7 +7087,7 @@ async def handle_adm_bulk_price_scope(update: Update, context: ContextTypes.DEFA
             else:  # district scope
                 keyboard.append([InlineKeyboardButton(f"🏙️ {city_name}", callback_data=f"adm_bulk_price_city_for_district|{city_id}")])
         
-        keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=f"adm_bulk_price_type|{product_type}")])
+        keyboard.append([InlineKeyboardButton("⬅️ Atgal", callback_data=f"adm_bulk_price_type|{product_type}")])
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 
@@ -7095,7 +7095,7 @@ async def handle_adm_bulk_price_city(update: Update, context: ContextTypes.DEFAU
     """Handle city selection for city scope (all districts in city)."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id):
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     if not params or len(params) < 1:
         return await query.answer("Error: City not specified.", show_alert=True)
@@ -7109,7 +7109,7 @@ async def handle_adm_bulk_price_city(update: Update, context: ContextTypes.DEFAU
     
     msg = f"💰 Bulk Edit Prices\n\nProduct Type: {emoji} {product_type}\nScope: {city_name} (all districts)\n\nEnter the new price (in EUR):"
     context.user_data['state'] = 'awaiting_bulk_price_value'
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="admin_menu")]]
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data="admin_menu")]]
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 
@@ -7117,7 +7117,7 @@ async def handle_adm_bulk_price_city_for_district(update: Update, context: Conte
     """Handle city selection when district scope is needed."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id):
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     if not params or len(params) < 1:
         return await query.answer("Error: City not specified.", show_alert=True)
@@ -7133,7 +7133,7 @@ async def handle_adm_bulk_price_city_for_district(update: Update, context: Conte
     city_districts = DISTRICTS.get(city_id, {})
     if not city_districts:
         msg = f"No districts found in {city_name}."
-        keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data=f"adm_bulk_price_type|{product_type}")]]
+        keyboard = [[InlineKeyboardButton("⬅️ Atgal", callback_data=f"adm_bulk_price_type|{product_type}")]]
         return await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     
     msg = f"💰 Bulk Edit Prices\n\nProduct Type: {emoji} {product_type}\nScope: City + District\nCity: {city_name}\n\nSelect a district:"
@@ -7145,7 +7145,7 @@ async def handle_adm_bulk_price_city_for_district(update: Update, context: Conte
         district_name = city_districts.get(district_id, 'Unknown')
         keyboard.append([InlineKeyboardButton(f"📍 {district_name}", callback_data=f"adm_bulk_price_district|{district_id}")])
     
-    keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=f"adm_bulk_price_type|{product_type}")])
+    keyboard.append([InlineKeyboardButton("⬅️ Atgal", callback_data=f"adm_bulk_price_type|{product_type}")])
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 
@@ -7153,7 +7153,7 @@ async def handle_adm_bulk_price_district(update: Update, context: ContextTypes.D
     """Handle district selection for district scope - show individual products."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id):
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     if not params or len(params) < 1:
         return await query.answer("Error: District not specified.", show_alert=True)
@@ -7198,7 +7198,7 @@ async def handle_adm_bulk_price_district(update: Update, context: ContextTypes.D
             logger.warning(f"Sample of existing products in DB: {sample_data}")
             
             msg = f"❌ No products found:\n\nType: {emoji} {product_type}\nLocation: {city_name} - {district_name}"
-            keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data=f"adm_bulk_price_city_for_district|{city_id}")]]
+            keyboard = [[InlineKeyboardButton("⬅️ Atgal", callback_data=f"adm_bulk_price_city_for_district|{city_id}")]]
             return await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
         
         # Show list of products to select from
@@ -7212,13 +7212,13 @@ async def handle_adm_bulk_price_district(update: Update, context: ContextTypes.D
             product_label = f"{product['size']} - €{product['price']:.2f} (Stock: {product['available']})"
             keyboard.append([InlineKeyboardButton(product_label, callback_data=f"adm_edit_single_price|{product['id']}")])
         
-        keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data=f"adm_bulk_price_city_for_district|{city_id}")])
+        keyboard.append([InlineKeyboardButton("⬅️ Atgal", callback_data=f"adm_bulk_price_city_for_district|{city_id}")])
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
         
     except Exception as e:
         logger.error(f"Error fetching products for price edit: {e}", exc_info=True)
         msg = "❌ Error loading products. Please try again."
-        keyboard = [[InlineKeyboardButton("⬅️ Back to Admin", callback_data="admin_menu")]]
+        keyboard = [[InlineKeyboardButton("⬅️ Atgal į Admin", callback_data="admin_menu")]]
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     finally:
         if conn:
@@ -7229,7 +7229,7 @@ async def handle_adm_edit_single_price(update: Update, context: ContextTypes.DEF
     """Handle selection of specific product size to edit price (updates all products of that size in location)."""
     query = update.callback_query
     if not is_primary_admin(query.from_user.id):
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     if not params or len(params) < 1:
         return await query.answer("Error: Product not specified.", show_alert=True)
@@ -7249,7 +7249,7 @@ async def handle_adm_edit_single_price(update: Update, context: ContextTypes.DEF
         
         if not product:
             msg = "❌ Product not found. It may have been deleted."
-            keyboard = [[InlineKeyboardButton("⬅️ Back to Admin", callback_data="admin_menu")]]
+            keyboard = [[InlineKeyboardButton("⬅️ Atgal į Admin", callback_data="admin_menu")]]
             return await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
         
         # Store the criteria (not just product_id) so we can update ALL matching products
@@ -7287,13 +7287,13 @@ async def handle_adm_edit_single_price(update: Update, context: ContextTypes.DEF
         msg += f"Enter the new price (in EUR):"
         
         context.user_data['state'] = 'awaiting_single_price_edit'
-        keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="admin_menu")]]
+        keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data="admin_menu")]]
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
         
     except Exception as e:
         logger.error(f"Error fetching product {product_id} for price edit: {e}", exc_info=True)
         msg = "❌ Error loading product. Please try again."
-        keyboard = [[InlineKeyboardButton("⬅️ Back to Admin", callback_data="admin_menu")]]
+        keyboard = [[InlineKeyboardButton("⬅️ Atgal į Admin", callback_data="admin_menu")]]
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     finally:
         if conn:
@@ -7388,7 +7388,7 @@ async def handle_adm_single_price_edit_message(update: Update, context: ContextT
         success_msg += f"Old Price: €{old_price:.2f}\n"
         success_msg += f"New Price: €{new_price:.2f}"
         
-        keyboard = [[InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")]]
+        keyboard = [[InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")]]
         await send_message_with_retry(context.bot, chat_id, success_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
         
         logger.info(f"Admin {user_id} updated price for {updated_count} products ({product_type} - {size} in {city}/{district}) from €{old_price:.2f} to €{new_price:.2f}")
@@ -7467,7 +7467,7 @@ async def handle_adm_bulk_price_value_message(update: Update, context: ContextTy
             else:
                 msg += "Scope: All Cities\n"
             
-            keyboard = [[InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")]]
+            keyboard = [[InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")]]
             await send_message_with_retry(context.bot, chat_id, msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
             context.user_data.pop('state', None)
             return
@@ -7507,7 +7507,7 @@ async def handle_adm_bulk_price_value_message(update: Update, context: ContextTy
         
         keyboard = [
             [InlineKeyboardButton("✅ Confirm Update", callback_data="adm_bulk_price_confirm")],
-            [InlineKeyboardButton("❌ Cancel", callback_data="admin_menu")]
+            [InlineKeyboardButton("❌ Atšaukti", callback_data="admin_menu")]
         ]
         
         await send_message_with_retry(context.bot, chat_id, msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
@@ -7528,7 +7528,7 @@ async def handle_adm_bulk_price_confirm(update: Update, context: ContextTypes.DE
     user_id = query.from_user.id
     
     if not is_primary_admin(user_id):
-        return await query.answer("Access denied.", show_alert=True)
+        return await query.answer("Prieiga uždrausta.", show_alert=True)
     
     # Get stored data
     product_type = context.user_data.get('bulk_price_type')
@@ -7589,7 +7589,7 @@ async def handle_adm_bulk_price_confirm(update: Update, context: ContextTypes.DE
         success_msg += f"Scope: {scope_desc}\n\n"
         success_msg += f"✅ Updated {row_count} product(s)"
         
-        keyboard = [[InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")]]
+        keyboard = [[InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")]]
         await query.edit_message_text(success_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
         
         logger.info(f"Admin {user_id} bulk updated prices: {row_count} products of type '{product_type}' to €{new_price:.2f} (scope: {scope_desc})")
@@ -7599,7 +7599,7 @@ async def handle_adm_bulk_price_confirm(update: Update, context: ContextTypes.DE
         if conn and conn.in_transaction:
             conn.rollback()
         error_msg = "❌ Error: Failed to update prices. Please try again or contact support."
-        keyboard = [[InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data="admin_menu")]]
+        keyboard = [[InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data="admin_menu")]]
         await query.edit_message_text(error_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
     finally:
         if conn:
@@ -7625,7 +7625,7 @@ async def handle_recover_stuck_funds(update: Update, context: ContextTypes.DEFAU
     
     # Allow both primary and secondary admins
     if not is_any_admin(user_id):
-        return await query.answer("Access denied. Admin only.", show_alert=True)
+        return await query.answer("Prieiga uždrausta. Admin only.", show_alert=True)
     
     # Determine back menu based on admin type
     back_callback = "admin_menu" if is_primary_admin(user_id) else "viewer_admin_menu"
@@ -7662,7 +7662,7 @@ async def handle_recover_stuck_funds(update: Update, context: ContextTypes.DEFAU
             keyboard = [
                 [InlineKeyboardButton("🎯 Quick Recover (Single Wallet)", callback_data="adm_recover_single")],
                 [InlineKeyboardButton("🔄 Refresh Full Scan", callback_data="adm_recover_stuck_funds")],
-                [InlineKeyboardButton("⬅️ Back", callback_data=back_callback)]
+                [InlineKeyboardButton("⬅️ Atgal", callback_data=back_callback)]
             ]
             await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
             return
@@ -7691,7 +7691,7 @@ async def handle_recover_stuck_funds(update: Update, context: ContextTypes.DEFAU
             [InlineKeyboardButton(f"✅ Recover All ({total_sol:.4f} SOL)", callback_data="adm_recover_confirm")],
             [InlineKeyboardButton("🎯 Quick Recover (Single Wallet)", callback_data="adm_recover_single")],
             [InlineKeyboardButton("🔄 Refresh", callback_data="adm_recover_stuck_funds")],
-            [InlineKeyboardButton("⬅️ Back", callback_data=back_callback)]
+            [InlineKeyboardButton("⬅️ Atgal", callback_data=back_callback)]
         ]
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         
@@ -7699,7 +7699,7 @@ async def handle_recover_stuck_funds(update: Update, context: ContextTypes.DEFAU
         logger.error(f"Error in handle_recover_stuck_funds: {e}", exc_info=True)
         back_callback = "admin_menu" if is_primary_admin(user_id) else "viewer_admin_menu"
         error_msg = f"❌ Error scanning for stuck funds: {str(e)[:100]}"
-        keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data=back_callback)]]
+        keyboard = [[InlineKeyboardButton("⬅️ Atgal", callback_data=back_callback)]]
         await query.edit_message_text(error_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 
@@ -7710,7 +7710,7 @@ async def handle_recover_confirm(update: Update, context: ContextTypes.DEFAULT_T
     
     # Allow both primary and secondary admins
     if not is_any_admin(user_id):
-        return await query.answer("Access denied. Admin only.", show_alert=True)
+        return await query.answer("Prieiga uždrausta. Admin only.", show_alert=True)
     
     # Determine back menu based on admin type
     back_callback = "admin_menu" if is_primary_admin(user_id) else "viewer_admin_menu"
@@ -7746,7 +7746,7 @@ async def handle_recover_confirm(update: Update, context: ContextTypes.DEFAULT_T
         
         keyboard = [
             [InlineKeyboardButton("🔄 Check Again", callback_data="adm_recover_stuck_funds")],
-            [InlineKeyboardButton("⬅️ Back", callback_data=back_callback)]
+            [InlineKeyboardButton("⬅️ Atgal", callback_data=back_callback)]
         ]
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         
@@ -7754,7 +7754,7 @@ async def handle_recover_confirm(update: Update, context: ContextTypes.DEFAULT_T
         logger.error(f"Error in handle_recover_confirm: {e}", exc_info=True)
         back_callback = "admin_menu" if is_primary_admin(user_id) else "viewer_admin_menu"
         error_msg = f"❌ Recovery error: {str(e)[:100]}"
-        keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data=back_callback)]]
+        keyboard = [[InlineKeyboardButton("⬅️ Atgal", callback_data=back_callback)]]
         await query.edit_message_text(error_msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=None)
 
 
@@ -7764,7 +7764,7 @@ async def handle_recover_single_prompt(update: Update, context: ContextTypes.DEF
     user_id = query.from_user.id
     
     if not is_any_admin(user_id):
-        return await query.answer("Access denied. Admin only.", show_alert=True)
+        return await query.answer("Prieiga uždrausta. Admin only.", show_alert=True)
     
     await query.answer()
     
@@ -7776,7 +7776,7 @@ async def handle_recover_single_prompt(update: Update, context: ContextTypes.DEF
     msg += "📋 *Example:* `38RDpfB3zNthSgVCxkLiWEKiV2Mj4MjYUYJZifVyzVda`\n\n"
     msg += "Reply with the wallet address:"
     
-    keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="adm_recover_stuck_funds")]]
+    keyboard = [[InlineKeyboardButton("❌ Atšaukti", callback_data="adm_recover_stuck_funds")]]
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
     
     # Set state to await wallet address (using state system for consistency)
@@ -7822,7 +7822,7 @@ async def handle_recovery_wallet_address_message(update: Update, context: Contex
                 parse_mode="Markdown",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("🔄 Try Again", callback_data="adm_recover_single")],
-                    [InlineKeyboardButton("⬅️ Back", callback_data=back_callback)]
+                    [InlineKeyboardButton("⬅️ Atgal", callback_data=back_callback)]
                 ])
             )
             return
@@ -7839,7 +7839,7 @@ async def handle_recovery_wallet_address_message(update: Update, context: Contex
                 parse_mode="Markdown",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("🔄 Check Another", callback_data="adm_recover_single")],
-                    [InlineKeyboardButton("⬅️ Back", callback_data=back_callback)]
+                    [InlineKeyboardButton("⬅️ Atgal", callback_data=back_callback)]
                 ])
             )
             return
@@ -7862,7 +7862,7 @@ async def handle_recovery_wallet_address_message(update: Update, context: Contex
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton(f"✅ Recover Now ({sol_balance:.4f} SOL)", callback_data="adm_recover_single_confirm")],
                 [InlineKeyboardButton("🔄 Check Another", callback_data="adm_recover_single")],
-                [InlineKeyboardButton("⬅️ Back", callback_data=back_callback)]
+                [InlineKeyboardButton("⬅️ Atgal", callback_data=back_callback)]
             ])
         )
         
@@ -7872,7 +7872,7 @@ async def handle_recovery_wallet_address_message(update: Update, context: Contex
             f"❌ Error: {str(e)[:100]}\n\nPlease try again.",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔄 Try Again", callback_data="adm_recover_single")],
-                [InlineKeyboardButton("⬅️ Back", callback_data=back_callback)]
+                [InlineKeyboardButton("⬅️ Atgal", callback_data=back_callback)]
             ])
         )
 
@@ -7883,7 +7883,7 @@ async def handle_recover_single_confirm(update: Update, context: ContextTypes.DE
     user_id = query.from_user.id
     
     if not is_any_admin(user_id):
-        return await query.answer("Access denied. Admin only.", show_alert=True)
+        return await query.answer("Prieiga uždrausta. Admin only.", show_alert=True)
     
     back_callback = "admin_menu" if is_primary_admin(user_id) else "viewer_admin_menu"
     
@@ -7922,7 +7922,7 @@ async def handle_recover_single_confirm(update: Update, context: ContextTypes.DE
             disable_web_page_preview=True,
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔄 Recover Another", callback_data="adm_recover_single")],
-                [InlineKeyboardButton("⬅️ Back", callback_data=back_callback)]
+                [InlineKeyboardButton("⬅️ Atgal", callback_data=back_callback)]
             ])
         )
         
@@ -7932,6 +7932,6 @@ async def handle_recover_single_confirm(update: Update, context: ContextTypes.DE
             f"❌ Recovery error: {str(e)[:100]}",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔄 Try Again", callback_data="adm_recover_single")],
-                [InlineKeyboardButton("⬅️ Back", callback_data=back_callback)]
+                [InlineKeyboardButton("⬅️ Atgal", callback_data=back_callback)]
             ])
         )

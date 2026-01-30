@@ -58,7 +58,7 @@ async def handle_view_stock(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         if not products:
             msg = "📦 Bot Stock\n\nNo products currently in stock (neither available nor reserved)." # Clarified message
             back_callback = "admin_menu" if primary_admin else "viewer_admin_menu"
-            keyboard = [[InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data=back_callback)]]
+            keyboard = [[InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data=back_callback)]]
         else:
             msg = "📦 Current Bot Stock\n\n"
             # Group products by location and type
@@ -90,7 +90,7 @@ async def handle_view_stock(update: Update, context: ContextTypes.DEFAULT_TYPE, 
                 logger.warning("Stock list message truncated due to length.")
 
             back_callback = "admin_menu" if primary_admin else "viewer_admin_menu"
-            keyboard = [[InlineKeyboardButton("⬅️ Back to Admin Menu", callback_data=back_callback)]]
+            keyboard = [[InlineKeyboardButton("⬅️ Atgal į Admin meniu", callback_data=back_callback)]]
 
         # Try sending/editing the message
         try:
